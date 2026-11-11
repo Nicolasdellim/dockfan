@@ -2,3 +2,9 @@
 .swiftpm/
 .DS_Store
 shots/
+
+# Outils locaux (chemins de la machine)
+.mcp.json
+.cursor/
+AGENTS.md
+CLAUDE.md
