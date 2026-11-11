@@ -1,13 +1,13 @@
 //
 //  EditorWindow.swift
-//  Groupdock
+//  Docked
 //
 
 import AppKit
 import SwiftUI
 
-/// The editor's window. Droppy runs as an accessory app, so the window brings
-/// it forward on show; closing it only hides it, and `close()` tears it down.
+/// The editor's window. Droppy runs as an accessory app, so showing the
+/// window brings Droppy forward on the Space the user is looking at.
 @MainActor
 final class EditorWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
@@ -20,22 +20,24 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
     func show() {
         if window == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 1080, height: 700),
+                contentRect: NSRect(x: 0, y: 0, width: 1140, height: 740),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered, defer: false
             )
-            window.title = "GroupDock"
+            window.title = "Docked"
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
+            window.isMovableByWindowBackground = true
             window.isReleasedWhenClosed = false
-            window.setFrameAutosaveName("GroupDockEditor")
-            window.contentMinSize = NSSize(width: 980, height: 640)
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.backgroundColor = NSColor(Brand.ink)
+            window.contentMinSize = NSSize(width: 1040, height: 680)
             window.contentView = NSHostingView(rootView: EditorView(store: store))
             window.delegate = self
-            // Droppy is an accessory app: without this the window opens on the
-            // Space Droppy last used, not the one the user is looking at.
+            // Without this the window opens on the Space Droppy last used.
             window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-            if !window.setFrameUsingName("GroupDockEditor") { window.center() }
+            window.setFrameAutosaveName("DockedEditor")
+            if !window.setFrameUsingName("DockedEditor") { window.center() }
             self.window = window
         }
         store.refreshDockState()

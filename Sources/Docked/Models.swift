@@ -1,6 +1,6 @@
 //
 //  Models.swift
-//  Groupdock
+//  Docked
 //
 
 import AppKit
@@ -12,10 +12,18 @@ enum StackPresentation: Int, Codable, CaseIterable, Identifiable, Sendable {
     var id: Int { rawValue }
     var title: String {
         switch self {
-        case .automatic: "Automatique"
-        case .fan: "Éventail"
-        case .grid: "Grille"
-        case .list: "Liste"
+        case .automatic: L("Automatic", "Automatique")
+        case .fan: L("Fan", "Éventail")
+        case .grid: L("Grid", "Grille")
+        case .list: L("List", "Liste")
+        }
+    }
+    var subtitle: String {
+        switch self {
+        case .automatic: L("Fan, or a grid for a large group", "Éventail, ou grille si le groupe est grand")
+        case .fan: L("The animated arc, as in the Dock", "L’arc animé, comme dans le Dock")
+        case .grid: L("A panel of icons", "Un panneau d’icônes")
+        case .list: L("A compact list of names", "Une liste compacte de noms")
         }
     }
     var symbol: String {
@@ -35,14 +43,14 @@ enum TileStyle: Int, Codable, CaseIterable, Identifiable, Sendable {
     /// A plain folder icon.
     case folder = 1
     var id: Int { rawValue }
-    var title: String { self == .stack ? "Pile d’apps" : "Dossier" }
+    var title: String { self == .stack ? L("App stack", "Pile d’apps") : L("Folder", "Dossier") }
 }
 
 /// Order of the apps in the open stack.
 enum StackOrder: String, Codable, CaseIterable, Identifiable, Sendable {
     case custom, name
     var id: String { rawValue }
-    var title: String { self == .custom ? "Personnalisé" : "Par nom" }
+    var title: String { self == .custom ? L("Custom", "Personnalisé") : L("By name", "Par nom") }
     /// The Dock's own `arrangement` value: 3 sorts by date modified (newest
     /// first), which is how the custom order is written; 1 sorts by name.
     var dockArrangement: Int { self == .custom ? 3 : 1 }
@@ -111,7 +119,7 @@ struct DockGroup: Codable, Identifiable, Equatable, Sendable {
             .replacingOccurrences(of: "/", with: "-")
             .replacingOccurrences(of: ":", with: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "Groupe" : cleaned
+        return cleaned.isEmpty ? L("Group", "Groupe") : cleaned
     }
 }
 

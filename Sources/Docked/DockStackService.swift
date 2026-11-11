@@ -1,6 +1,6 @@
 //
 //  DockStackService.swift
-//  Groupdock
+//  Docked
 //
 //  Each group is a folder of Finder aliases. The Dock shows that folder as a
 //  native stack, so the fan, its animation and its dismissal are macOS's own.
@@ -12,8 +12,8 @@ enum DockStackError: LocalizedError {
     case noApps, writeFailed(String)
     var errorDescription: String? {
         switch self {
-        case .noApps: "Ajoutez au moins une application au groupe."
-        case .writeFailed(let detail): "Impossible d’écrire le groupe : \(detail)"
+        case .noApps: L("Add at least one app to the group.", "Ajoutez au moins une application au groupe.")
+        case .writeFailed(let detail): L("Couldn’t write the group: \(detail)", "Impossible d’écrire le groupe : \(detail)")
         }
     }
 }

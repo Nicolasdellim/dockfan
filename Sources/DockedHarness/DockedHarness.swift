@@ -1,5 +1,5 @@
 //
-//  GroupdockHarness.swift
+//  DockedHarness.swift
 //
 //  Run with: droppykit run
 //
@@ -9,9 +9,9 @@
 
 import DroppyKit
 import DroppyKitHarness
-import Groupdock
+import Docked
 
 @main
-struct GroupdockHarness: DropletHarnessApp {
-    static func makeDroplet() -> any Droplet { GroupdockDroplet() }
+struct DockedHarness: DropletHarnessApp {
+    static func makeDroplet() -> any Droplet { DockedDroplet() }
 }

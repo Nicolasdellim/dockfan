@@ -1,4 +1,4 @@
-# GroupDock, a Droplet for Droppy
+# Docked, a Droplet for Droppy
 
 <!-- Written by `droppykit agent`. Add your own notes below; the file is only rewritten with --force. -->
 
@@ -7,8 +7,8 @@ Dynamic Island and shelf for Mac, written in SwiftUI against **DroppyKit**.
 Droppy loads the built `.droplet` bundle into its own process and draws it on
 the notch, the shelf, the lock screen and the menu bar.
 
-- Droplet id: `groupdock`. It is also `GroupdockDroplet.id` in Swift and `id` in `droplet.json`; the three must agree or the loader refuses the bundle.
-- Swift product: `Groupdock`, a dynamic library. The harness target is `GroupdockHarness`.
+- Droplet id: `docked`. It is also `DockedDroplet.id` in Swift and `id` in `droplet.json`; the three must agree or the loader refuses the bundle.
+- Swift product: `Docked`, a dynamic library. The harness target is `DockedHarness`.
 - SDK checkout: `/Users/nicolasdellimuti/Developer/Droplets/droppykit` (DroppyKit 1.22.0). Docs online: https://getdroppy.app/docs/droppykit
 - Host: Droppy 15.3 or later, which runs an unsigned bundle once its user approves that build under Settings, Store, Local droplets and asks again each time it opens, or the free Droppy Playground (https://getdroppy.app/download/playground), which loads unsigned bundles without asking.
 
@@ -17,8 +17,8 @@ the notch, the shelf, the lock screen and the menu bar.
 Every change goes through all of this, in order. A droplet can compile,
 validate and then draw nothing, so a green build is not the end.
 
-1. Edit `Sources/Groupdock/`. The manifest is `droplet.json`.
-2. `droppykit build` writes `.build/Groupdock.droplet`, universal, linked against the
+1. Edit `Sources/Docked/`. The manifest is `droplet.json`.
+2. `droppykit build` writes `.build/Docked.droplet`, universal, linked against the
    framework Droppy ships. Never a bare `swift build` for the bundle: it folds a second
    copy of DroppyKit into the droplet, and that bundle loads in the harness and dies
    inside Droppy at dyld with "Symbol not found".
@@ -28,8 +28,8 @@ validate and then draw nothing, so a green build is not the end.
    Read `report.json`: `problems` must be empty and every surface you declared must be
    `provided`.
 5. Put the bundle into Droppy Playground and confirm it loaded. Copy
-   `.build/Groupdock.droplet` to
-   `~/Library/Application Support/Droppy Playground/Droplets/groupdock/Groupdock.droplet`,
+   `.build/Docked.droplet` to
+   `~/Library/Application Support/Droppy Playground/Droplets/docked/Docked.droplet`,
    relaunch the Playground, and read its Store row: the subtitle is the loader's verdict.
 
 With the DroppyKit MCP server connected, the same steps are the tools `droppykit_build`,
@@ -169,10 +169,10 @@ package pins; `droppykit update` moves both to the newest release. A build that 
 - **Host calls are gated by `capabilities`.** A service call without its capability in
   `droplet.json` is refused: it returns `false` or `nil` and logs one line. Declare what you
   use and only that; the user sees the list.
-- **The principal class does nothing.** `GroupdockPrincipal` is `@objc`, is named in the
+- **The principal class does nothing.** `DockedPrincipal` is `@objc`, is named in the
   bundle's `NSPrincipalClass`, and only creates the droplet. It runs before the host is ready.
 - **No `main.swift`.** The harness entry is `@main` in
-  `Sources/GroupdockHarness/GroupdockHarness.swift`, and a file named `main.swift` cannot
+  `Sources/DockedHarness/DockedHarness.swift`, and a file named `main.swift` cannot
   coexist with `@main`.
 - **Look like Droppy, not like a guest.** Surfaces are dark. Foreground colours come from
   `AdaptiveColors`, spacing from `DroppySpacing`, radii from `DroppyRadius` with
@@ -187,7 +187,7 @@ package pins; `droppykit update` moves both to the newest release. A build that 
   content is a list of sections, never a `VStack`, and it places no dividers.
 - **Never make the droplet's icon.** Jordy designs every Store droplet's icon himself, in
   Icon Composer and in Droppy's own style, so it adapts to light, dark, clear and tinted
-  icons and matches the rest of the Store. `Groupdock.icon` is a placeholder for the
+  icons and matches the rest of the Store. `Docked.icon` is a placeholder for the
   harness and the Playground: never generate, draw, redesign or replace it, never add
   another `.icon`, `.icns` or app-icon image, and never change `icon` in `droplet.json`.
   `droppykit submit` leaves it out, and the Store refuses an icon that is not Jordy's. If
@@ -248,13 +248,13 @@ call in order, refused ones marked.
 ## Package layout
 
 ```
-Package.swift                     product Groupdock (dynamic) and GroupdockHarness
+Package.swift                     product Docked (dynamic) and DockedHarness
 droplet.json                      the manifest; Info.plist is generated from it
-Sources/Groupdock/              the droplet
-Sources/GroupdockHarness/       the @main harness entry; never main.swift
-Groupdock.icon/                 placeholder icon for the harness; Jordy designs the real one, never edit it
+Sources/Docked/              the droplet
+Sources/DockedHarness/       the @main harness entry; never main.swift
+Docked.icon/                 placeholder icon for the harness; Jordy designs the real one, never edit it
 Assets/Creator.png                square creator avatar, at least 256px, required
-.build/Groupdock.droplet        what droppykit build writes
+.build/Docked.droplet        what droppykit build writes
 AGENTS.md, CLAUDE.md, .cursor/    this brief and the agent wiring
 .mcp.json, .cursor/mcp.json       the DroppyKit MCP server; absolute paths for this Mac
 ```
@@ -298,7 +298,7 @@ for) instead of inventing it. The icon is the one placeholder that stays (see
 - The folder holds only what the Store takes: `droplet.json`, `Package.swift`,
   `Sources/`, `Assets/`, `CHANGELOG.md`, `README.md`. No `Tests/` folder or
   `.testTarget`, no scripts, no extra Markdown. `Package.swift` keeps one
-  dynamic library, the `GroupdockHarness` executable and DroppyKit as its
+  dynamic library, the `DockedHarness` executable and DroppyKit as its
   only dependency, with no plugins, macros, binary targets, other executables
   or `unsafeFlags`. `droppykit submit` leaves the `.icon`, `.gitignore`,
   `Package.resolved`, `.build/`, shots and these agent files behind on its own.
@@ -307,7 +307,7 @@ for) instead of inventing it. The icon is the one placeholder that stays (see
 
 Full text: `/Users/nicolasdellimuti/Developer/Droplets/droppykit/Sources/DroppyKit/Documentation.docc/Icons.md`.
 
-- Jordy designs every Store droplet's icon. `Groupdock.icon` is a
+- Jordy designs every Store droplet's icon. `Docked.icon` is a
   placeholder for the harness and the Playground: leave it exactly as
   `droppykit new` wrote it, and never generate, draw or replace an icon.
 - `droppykit submit` leaves it out of the merge request. An idea for the icon

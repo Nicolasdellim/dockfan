@@ -1,9 +1,9 @@
 {
-  "id": "groupdock",
-  "name": "GroupDock",
+  "id": "docked",
+  "name": "Docked",
   "version": "1.0.0",
-  "summary": "Group apps into a Dock stack that opens as a fan",
-  "description": "GroupDock puts several apps in one stack of the Dock. Click it and the apps open in the Dock's own fan, with its animation, and it closes like any stack.\n\nCreate a group, pick its apps and their order, choose fan, grid or list, then add it to the Dock. Apps you add or move later reach the stack at once.",
+  "summary": "Group apps into one Dock stack that opens as a fan",
+  "description": "Docked puts several apps in a single stack of the Dock. Click it and they spread out in the Dock's own fan, with its animation, and it closes like any stack.\n\nCreate a group in Docked's editor, pick its apps and their order, choose fan, grid or list, and add it to the Dock. Apps you add or move later reach the stack right away. Suggestions build a group from the suites already on your Mac, such as Adobe or Microsoft Office.",
   "category": "Productivity",
   "kit": {
     "abi": 1,
@@ -16,26 +16,26 @@
   "surfaces": [
     "settings-pane"
   ],
-  "icon": "Groupdock.icon",
+  "icon": "Docked.icon",
   "creator": {
-    "name": "Nicolas Dellimuti",
+    "name": "Nicolas Delli Muti",
     "kind": "community",
-    "url": "https://example.com",
+    "url": "https://vision-studio.be",
     "avatar": "Creator.png",
     "gitlab": "your-gitlab-username"
   },
   "source": {
-    "repository": "https://gitlab.com/droppyformac1/droplets/-/tree/main/droplets/groupdock",
+    "repository": "https://gitlab.com/droppyformac1/droplets/-/tree/main/droplets/docked",
     "license": "MIT"
   },
-  "screenshots": [],
   "keywords": [
     "dock",
     "stack",
     "fan",
     "group",
     "apps",
-    "pile",
-    "éventail"
+    "folder",
+    "launcher",
+    "organize"
   ]
 }
