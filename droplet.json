@@ -1,0 +1,41 @@
+{
+  "id": "groupdock",
+  "name": "GroupDock",
+  "version": "1.0.0",
+  "summary": "Group apps into a Dock stack that opens as a fan",
+  "description": "GroupDock puts several apps in one stack of the Dock. Click it and the apps open in the Dock's own fan, with its animation, and it closes like any stack.\n\nCreate a group, pick its apps and their order, choose fan, grid or list, then add it to the Dock. Apps you add or move later reach the stack at once.",
+  "category": "Productivity",
+  "kit": {
+    "abi": 1,
+    "minAPI": "1.22.0"
+  },
+  "minAppVersion": "15.3.0",
+  "capabilities": [
+    "global-shortcuts"
+  ],
+  "surfaces": [
+    "settings-pane"
+  ],
+  "icon": "Groupdock.icon",
+  "creator": {
+    "name": "Nicolas Dellimuti",
+    "kind": "community",
+    "url": "https://example.com",
+    "avatar": "Creator.png",
+    "gitlab": "your-gitlab-username"
+  },
+  "source": {
+    "repository": "https://gitlab.com/droppyformac1/droplets/-/tree/main/droplets/groupdock",
+    "license": "MIT"
+  },
+  "screenshots": [],
+  "keywords": [
+    "dock",
+    "stack",
+    "fan",
+    "group",
+    "apps",
+    "pile",
+    "éventail"
+  ]
+}

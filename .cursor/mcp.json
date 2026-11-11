@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "droppykit": {
+      "command": "/Users/nicolasdellimuti/Developer/Droplets/droppykit/Scripts/droppykit",
+      "args": [
+        "mcp",
+        "--package",
+        "/Users/nicolasdellimuti/Developer/Droplets/groupdock"
+      ]
+    }
+  }
+}
