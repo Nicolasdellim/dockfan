@@ -10,6 +10,7 @@ import SwiftUI
 
 struct StackPreview: View {
     let group: DockGroup
+    var image: NSImage? = nil
     @Binding var expanded: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -26,14 +27,36 @@ struct StackPreview: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             Backdrop()
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-                if !apps.isEmpty { openContent.frame(maxWidth: .infinity) }
-                dock.padding(.bottom, 24)
+            GeometryReader { proxy in
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    if !apps.isEmpty {
+                        if group.mode == .folder { folderPanel(fitting: proxy.size) } else { openContent.frame(maxWidth: .infinity) }
+                    }
+                    dock.padding(.bottom, 24)
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: Brand.radius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Brand.radius, style: .continuous).strokeBorder(Brand.hairline))
+    }
+
+    // MARK: Folder
+
+    /// The real panel, scaled down when the stage is smaller than it.
+    private func folderPanel(fitting space: CGSize) -> some View {
+        let size = PanelMetrics(style: group.panel, count: apps.count).size
+        let scale = min(1, (space.width - 40) / size.width, (space.height - 170) / size.height)
+        return FolderPanelView(group: group, interactive: false)
+            .scaleEffect(max(0.3, scale), anchor: .bottom)
+            .frame(width: size.width * max(0.3, scale), height: size.height * max(0.3, scale))
+            .padding(.bottom, 14)
+            .frame(maxWidth: .infinity)
+            .scaleEffect(expanded ? 1 : 0.86, anchor: .bottom)
+            .offset(y: expanded ? 0 : 16)
+            .opacity(expanded ? 1 : 0)
+            .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.8), value: expanded)
     }
 
     // MARK: Open stack
@@ -94,10 +117,11 @@ struct StackPreview: View {
         let shown = Array(apps.prefix(presentation == .grid ? 15 : 8))
         return VStack(alignment: .leading, spacing: 12) {
             if presentation == .grid {
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(76), spacing: 6), count: min(5, max(1, shown.count))), spacing: 12) {
+                let side = group.stackGridIconSize > 0 ? CGFloat(group.stackGridIconSize) * 0.75 : 46
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(side + 30), spacing: 6), count: min(5, max(1, shown.count))), spacing: 12) {
                     ForEach(shown) { app in
                         VStack(spacing: 5) {
-                            Image(nsImage: app.icon).resizable().frame(width: 46, height: 46)
+                            Image(nsImage: app.icon).resizable().frame(width: side, height: side)
                             Text(group.label(for: app)).font(.system(size: 10.5)).foregroundStyle(.white).lineLimit(1)
                         }
                     }
@@ -140,8 +164,9 @@ struct StackPreview: View {
         HStack(spacing: 10) {
             // Symmetric on purpose: the group's tile sits on the centre line
             // the fan rises from.
+            if group.mode == .folder { ghostTile }
             ghostTile
-            Rectangle().fill(.white.opacity(0.22)).frame(width: 1, height: 38)
+            if group.mode == .stack { Rectangle().fill(.white.opacity(0.22)).frame(width: 1, height: 38) }
             Button { expanded.toggle() } label: { tile }
                 .buttonStyle(.plain)
                 .help(expanded ? L("Close", "Refermer") : L("Open", "Déplier"))
@@ -154,8 +179,12 @@ struct StackPreview: View {
                             .transition(.opacity)
                     }
                 }
-            Image(systemName: "trash").font(.system(size: 24, weight: .light)).foregroundStyle(.white.opacity(0.75))
-                .frame(width: 63, height: 52)
+            if group.mode == .folder {
+                ghostTile; ghostTile
+            } else {
+                Image(systemName: "trash").font(.system(size: 24, weight: .light)).foregroundStyle(.white.opacity(0.75))
+                    .frame(width: 63, height: 52)
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.ultraThinMaterial))
@@ -175,16 +204,13 @@ struct StackPreview: View {
     /// Closed: the apps piled up, the first one in front. Open: the chevron.
     @ViewBuilder private var tile: some View {
         ZStack {
-            if expanded && !apps.isEmpty {
+            if expanded && !apps.isEmpty && group.mode == .stack {
                 RoundedRectangle(cornerRadius: 13, style: .continuous).fill(.black.opacity(0.55))
                     .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.12)))
                     .overlay(Image(systemName: "chevron.down").font(.system(size: 19, weight: .semibold)).foregroundStyle(.white))
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
-            } else if group.tileStyle == .folder || apps.isEmpty {
-                Image(nsImage: NSWorkspace.shared.icon(for: .folder)).resizable().frame(width: 54, height: 54)
-                    .transition(.opacity)
             } else {
-                PileIcon(apps: apps, size: 52).transition(.opacity)
+                DockTileIcon(group: group, image: image, size: 52).transition(.opacity)
             }
         }
         .frame(width: 52, height: 52)
@@ -264,5 +290,29 @@ struct PileIcon: View {
             }
         }
         .frame(width: size, height: size)
+    }
+}
+
+/// The group's tile as the Dock shows it, for any mode and icon style.
+struct DockTileIcon: View {
+    let group: DockGroup
+    let image: NSImage?
+    var size: CGFloat = 52
+
+    var body: some View {
+        switch group.effectiveTileStyle {
+        case .appGrid, .image:
+            // Composed icons carry Apple's margin: scale up to match the
+            // other tiles' visible size.
+            ComposedIcon(group: group, image: image, size: size * 1.18).frame(width: size, height: size)
+        case .folder:
+            Image(nsImage: NSWorkspace.shared.icon(for: .folder)).resizable().interpolation(.high).frame(width: size * 1.04, height: size * 1.04)
+        case .stack:
+            if group.apps.isEmpty {
+                Image(nsImage: NSWorkspace.shared.icon(for: .folder)).resizable().frame(width: size * 1.04, height: size * 1.04)
+            } else {
+                PileIcon(apps: group.displayedApps, size: size)
+            }
+        }
     }
 }

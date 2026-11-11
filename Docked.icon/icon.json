@@ -1,42 +1,42 @@
 {
-  "fill-specializations" : [
+  "fill-specializations": [
     {
-      "value" : {
-        "linear-gradient" : [
-          "display-p3:0.17000,0.17200,0.19000,1.00000",
-          "display-p3:0.04500,0.04700,0.06300,1.00000"
-        ]
-      }
-    },
-    {
-      "appearance" : "dark",
-      "value" : {
-        "linear-gradient" : [
-          "display-p3:0.14000,0.14200,0.16000,1.00000",
-          "display-p3:0.03000,0.03200,0.04500,1.00000"
-        ]
+      "value": {
+        "solid": "display-p3:0.04000,0.04200,0.05500,1.00000"
       }
     }
   ],
-  "groups" : [
+  "groups": [
     {
-      "layers" : [
+      "layers": [
         {
-          "hidden" : false,
-          "image-name" : "stack.png",
-          "name" : "stack",
-          "position" : {
-            "scale" : 1.0,
-            "translation-in-points" : [ 0, 0 ]
+          "hidden": false,
+          "image-name": "logo.png",
+          "name": "logo",
+          "position": {
+            "scale": 1.0,
+            "translation-in-points": [
+              0,
+              0
+            ]
           }
         }
       ],
-      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
-      "translucency" : { "enabled" : false, "value" : 0.5 }
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      },
+      "specular": false
     }
   ],
-  "supported-platforms" : {
-    "circles" : [ "watchOS" ],
-    "squares" : "shared"
+  "supported-platforms": {
+    "circles": [
+      "watchOS"
+    ],
+    "squares": "shared"
   }
 }

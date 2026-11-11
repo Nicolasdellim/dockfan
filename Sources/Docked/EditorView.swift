@@ -128,7 +128,7 @@ private struct Sidebar: View {
         let selected = store.selection == group.id
         return Button { store.selection = group.id } label: {
             HStack(spacing: 11) {
-                PileIcon(apps: group.displayedApps, size: 34)
+                DockTileIcon(group: group, image: store.image(for: group), size: 34)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(group.name).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Brand.text).lineLimit(1)
                     Text(group.apps.count == 1 ? "1 app" : "\(group.apps.count) apps")
@@ -344,7 +344,7 @@ private struct GroupEditor: View {
         .confirmationDialog(L("Delete “\(group.name)”?", "Supprimer « \(group.name) » ?"), isPresented: $confirmingDelete) {
             Button(L("Delete group", "Supprimer le groupe"), role: .destructive) { store.delete(group) }
         } message: {
-            Text(inDock ? L("Its stack leaves the Dock. Your apps are not touched.", "Sa pile est retirée du Dock. Vos apps ne sont pas touchées.")
+            Text(inDock ? L("Its tile leaves the Dock. Your apps are not touched.", "Sa tuile est retirée du Dock. Vos apps ne sont pas touchées.")
                         : L("Your apps are not touched.", "Vos apps ne sont pas touchées."))
         }
     }
@@ -353,7 +353,7 @@ private struct GroupEditor: View {
 
     private var stage: some View {
         ZStack(alignment: .top) {
-            StackPreview(group: group, expanded: $expanded)
+            StackPreview(group: group, image: store.image(for: group), expanded: $expanded)
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(L("Preview", "Aperçu")).font(.system(size: 10, weight: .semibold)).tracking(0.8).foregroundStyle(.white.opacity(0.45))
@@ -376,7 +376,8 @@ private struct GroupEditor: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.bottom, 60)
             } else {
-                Text(L("Click the stack to open or close it", "Cliquez sur la pile pour la déplier ou la refermer"))
+                Text(group.mode == .stack ? L("Click the stack to open or close it", "Cliquez sur la pile pour la déplier ou la refermer")
+                                          : L("Click the folder to open or close its panel", "Cliquez sur le dossier pour ouvrir ou fermer son panneau"))
                     .font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.35))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom).padding(.bottom, 6)
             }
@@ -444,6 +445,7 @@ private struct Inspector: View {
     @Binding var confirmingDelete: Bool
     let receive: ([NSItemProvider]) -> Bool
     @State private var listDropTargeted = false
+    @State private var choosingImage = false
     @FocusState private var nameFocused: Bool
 
     private var state: DockState { store.state(of: group) }
@@ -457,7 +459,8 @@ private struct Inspector: View {
             Group {
                 switch store.inspectorTab {
                 case .apps: appsTab
-                case .style: ScrollView { styleTab.padding(16) }
+                case .icon: ScrollView { iconTab.padding(16) }
+                case .opening: ScrollView { openingTab.padding(16) }
                 }
             }
             .frame(maxHeight: .infinity)
@@ -465,12 +468,15 @@ private struct Inspector: View {
             dockBar.padding(16)
         }
         .glassPanel()
+        .fileImporter(isPresented: $choosingImage, allowedContentTypes: [.image]) { result in
+            if case .success(let url) = result { store.importImage(from: url, for: group.id) }
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
-                PileIcon(apps: group.displayedApps, size: 42)
+                DockTileIcon(group: group, image: store.image(for: group), size: 42)
                 VStack(alignment: .leading, spacing: 3) {
                     TextField(L("Group name", "Nom du groupe"), text: $group.name)
                         .textFieldStyle(.plain).font(.system(size: 17, weight: .semibold)).foregroundStyle(Brand.text)
@@ -490,13 +496,15 @@ private struct Inspector: View {
                 Label(L("Another group already has this name.", "Un autre groupe porte déjà ce nom."), systemImage: "exclamationmark.triangle.fill")
                     .font(.system(size: 11)).foregroundStyle(Brand.ember)
             }
+            ModeSwitch(mode: $group.mode).padding(.top, 8)
         }
         .padding(.horizontal, 16).padding(.top, 18).padding(.bottom, 14)
     }
 
     private var summary: String {
         let count = group.apps.count == 1 ? "1 app" : "\(group.apps.count) apps"
-        return "\(count) · \(group.presentation.title)"
+        let how = group.mode == .stack ? group.presentation.title : group.panel.layout.title
+        return "\(count) · \(group.mode.title) · \(how)"
     }
 
     // MARK: Apps
@@ -509,7 +517,7 @@ private struct Inspector: View {
             } else {
                 List {
                     ForEach(Array(group.displayedApps.enumerated()), id: \.element.id) { index, app in
-                        AppRow(app: app, label: group.label(for: app), first: index == 0, movable: group.order == .custom) {
+                        AppRow(app: app, label: group.label(for: app), note: index == 0 ? firstNote : nil, movable: group.order == .custom) {
                             withAnimation(.easeInOut(duration: 0.18)) { group.apps.removeAll { $0.id == app.id } }
                         }
                         .listRowBackground(Color.clear)
@@ -523,13 +531,29 @@ private struct Inspector: View {
                 .scrollContentBackground(.hidden)
 
                 VStack(spacing: 10) {
-                    Button { showingLibrary = true } label: {
-                        Label(L("Add apps", "Ajouter des apps"), systemImage: "plus").frame(maxWidth: .infinity)
+                    HStack(spacing: 8) {
+                        Button { showingLibrary = true } label: {
+                            Label(L("Add apps", "Ajouter des apps"), systemImage: "plus").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(QuietButtonStyle())
+                        Menu {
+                            Picker(L("Order", "Ordre"), selection: $group.order) {
+                                ForEach(StackOrder.allCases) { Text($0.title).tag($0) }
+                            }
+                            .pickerStyle(.inline)
+                        } label: {
+                            Image(systemName: "arrow.up.arrow.down").font(.system(size: 12, weight: .semibold)).foregroundStyle(Brand.text)
+                                .frame(width: 34, height: 34)
+                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
+                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Brand.hairline))
+                        }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(L("Order", "Ordre"))
                     }
-                    .buttonStyle(QuietButtonStyle())
                     Text(group.order == .name
-                         ? L("Sorted by name. Choose the custom order in Style to move them.", "Classées par nom. Choisissez l’ordre personnalisé dans Style pour les déplacer.")
-                         : L("Drag to reorder. The first one sits right above the Dock.", "Glissez pour réordonner. La première se place contre le Dock."))
+                         ? L("Sorted by name. Choose the custom order to move them.", "Classées par nom. Choisissez l’ordre personnalisé pour les déplacer.")
+                         : group.mode == .stack
+                            ? L("Drag to reorder. The first one sits right above the Dock.", "Glissez pour réordonner. La première se place contre le Dock.")
+                            : L("Drag to reorder. The first one opens the first page.", "Glissez pour réordonner. La première ouvre la première page."))
                         .font(.system(size: 10.5)).foregroundStyle(Brand.tertiary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -542,6 +566,10 @@ private struct Inspector: View {
                 RoundedRectangle(cornerRadius: 12).strokeBorder(Brand.ember, lineWidth: 2).padding(6).allowsHitTesting(false)
             }
         }
+    }
+
+    private var firstNote: String {
+        group.mode == .stack ? L("First, right above the Dock", "En premier, contre le Dock") : L("First in the panel", "En premier dans le panneau")
     }
 
     private var emptyApps: some View {
@@ -560,10 +588,89 @@ private struct Inspector: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Style
+    // MARK: Icon
 
-    private var styleTab: some View {
-        VStack(alignment: .leading, spacing: 24) {
+    private var iconTab: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            iconHero
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(L("Style", "Style"))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: TileStyle.available(for: group.mode).count), spacing: 8) {
+                    ForEach(TileStyle.available(for: group.mode)) { style in
+                        StyleTile(style: style, group: group, image: store.image(for: group),
+                                  selected: group.effectiveTileStyle == style) {
+                            if style == .image, group.iconImage == nil { choosingImage = true } else { group.tileStyle = style }
+                        }
+                    }
+                }
+            }
+            switch group.effectiveTileStyle {
+            case .appGrid:
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel(L("Background", "Fond"))
+                    FinishSwatches(selection: Binding(get: { group.iconFinish }, set: { group.iconFinish = $0 ?? .glass }), allowsNone: false)
+                }
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel(L("Apps on the icon", "Apps sur l’icône"))
+                    PillPicker(options: [(2, L("4 apps · 2 × 2", "4 apps · 2 × 2")), (3, L("9 apps · 3 × 3", "9 apps · 3 × 3"))], selection: $group.iconGrid)
+                    Text(L("The first apps of the group, in its order.", "Les premières apps du groupe, dans son ordre."))
+                        .font(.system(size: 10.5)).foregroundStyle(Brand.tertiary)
+                }
+            case .image:
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel(L("Picture", "Image"))
+                    HStack(spacing: 8) {
+                        Button { choosingImage = true } label: {
+                            Label(group.iconImage == nil ? L("Choose a picture…", "Choisir une image…") : L("Replace…", "Remplacer…"),
+                                  systemImage: "photo.on.rectangle").frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(QuietButtonStyle())
+                    }
+                    Text(L("A photo, a logo, anything. It is cropped to the Dock’s rounded square.", "Une photo, un logo, ce que vous voulez. Elle est recadrée au carré arrondi du Dock."))
+                        .font(.system(size: 10.5)).foregroundStyle(Brand.tertiary)
+                }
+            case .stack:
+                note(L("The apps piled on each other, the first one on top: the Dock’s own look.", "Les apps empilées, la première au-dessus : le style natif du Dock."))
+            case .folder:
+                note(L("The macOS folder icon.", "L’icône de dossier de macOS."))
+            }
+        }
+    }
+
+    private var iconHero: some View {
+        HStack(spacing: 16) {
+            DockTileIcon(group: group, image: store.image(for: group), size: 84)
+                .shadow(color: .black.opacity(0.35), radius: 10, y: 6)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: group.iconFinish)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("Dock icon", "Icône du Dock")).font(.system(size: 13, weight: .semibold)).foregroundStyle(Brand.text)
+                Text(L("What the group looks like among your apps.", "L’allure du groupe parmi vos apps."))
+                    .font(.system(size: 11)).foregroundStyle(Brand.tertiary).fixedSize(horizontal: false, vertical: true)
+                Button { withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { shuffle() } } label: {
+                    Label(L("Shuffle", "Au hasard"), systemImage: "shuffle")
+                }
+                .buttonStyle(QuietButtonStyle(compact: true))
+                .disabled(group.apps.isEmpty)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .glassCard(radius: 16)
+    }
+
+    private func shuffle() {
+        store.shuffleLook(of: group)
+        if let fresh = store.groups.first(where: { $0.id == group.id }) { group = fresh }
+    }
+
+    // MARK: Opening
+
+    @ViewBuilder private var openingTab: some View {
+        if group.mode == .stack { stackOpening } else { folderOpening }
+    }
+
+    private var stackOpening: some View {
+        VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(L("Opening", "Ouverture"))
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
@@ -574,32 +681,14 @@ private struct Inspector: View {
                 }
             }
             VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(L("Icon in the Dock", "Icône dans le Dock"))
-                HStack(spacing: 8) {
-                    ForEach(TileStyle.allCases) { style in
-                        Button { group.tileStyle = style } label: {
-                            VStack(spacing: 9) {
-                                Group {
-                                    if style == .stack {
-                                        PileIcon(apps: group.displayedApps, size: 40)
-                                    } else {
-                                        Image(nsImage: NSWorkspace.shared.icon(for: .folder)).resizable().frame(width: 40, height: 40)
-                                    }
-                                }
-                                .frame(height: 42)
-                                Text(style.title).font(.system(size: 11.5, weight: .medium)).foregroundStyle(Brand.text)
-                            }
-                            .frame(maxWidth: .infinity).frame(height: 92)
-                            .glassCard(selected: group.tileStyle == style)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            VStack(alignment: .leading, spacing: 10) {
-                SectionLabel(L("App order", "Ordre des apps"))
-                PillPicker(options: StackOrder.allCases.map { ($0, $0.title) }, selection: $group.order)
+                SectionLabel(L("Size", "Taille"))
+                SliderRow(title: L("Grid icons", "Icônes de la grille"),
+                          value: Binding(get: { group.stackGridIconSize == 0 ? 0 : group.stackGridIconSize },
+                                         set: { group.stackGridIconSize = $0 < 20 ? 0 : $0.rounded() }),
+                          range: 0...128, step: 4,
+                          display: group.stackGridIconSize == 0 ? L("Auto", "Auto") : "\(Int(group.stackGridIconSize)) pt")
+                note(L("The fan always has the Dock’s size: macOS doesn’t let anyone change it. For bigger icons, use a grid or a folder.",
+                       "L’éventail garde toujours la taille du Dock : macOS ne permet pas de la changer. Pour de plus grandes icônes, prenez la grille ou un dossier."))
             }
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(L("Names", "Noms"))
@@ -613,6 +702,70 @@ private struct Inspector: View {
                 .padding(12).glassCard()
             }
         }
+    }
+
+    private var folderOpening: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(L("Layout", "Disposition"))
+                HStack(spacing: 8) {
+                    ForEach(PanelLayout.allCases) { layout in
+                        Button { group.panel.layout = layout } label: {
+                            VStack(spacing: 8) {
+                                LayoutGlyph(layout: layout, selected: group.panel.layout == layout)
+                                Text(layout.title).font(.system(size: 11.5, weight: .medium)).foregroundStyle(Brand.text)
+                            }
+                            .frame(maxWidth: .infinity).frame(height: 84)
+                            .glassCard(selected: group.panel.layout == layout)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(L("Size", "Taille"))
+                VStack(spacing: 0) {
+                    if group.panel.layout != .list {
+                        SliderRow(title: L("Icons", "Icônes"), value: $group.panel.iconSize, range: 32...112, step: 4,
+                                  display: "\(Int(group.panel.iconSize)) pt")
+                        Divider().overlay(Brand.hairline).padding(.vertical, 10)
+                        CountRow(title: L("Columns", "Colonnes"), value: $group.panel.columns, range: 2...8)
+                        Divider().overlay(Brand.hairline).padding(.vertical, 10)
+                    }
+                    CountRow(title: group.panel.layout == .list ? L("Rows (× 3)", "Lignes (× 3)") : L("Rows per page", "Lignes par page"),
+                             value: $group.panel.rows, range: 1...6)
+                }
+                .padding(12).glassCard()
+                let metrics = PanelMetrics(style: group.panel, count: group.apps.count)
+                note(metrics.pages > 1
+                     ? L("\(metrics.perPage) apps per page · \(metrics.pages) pages. Swipe, scroll or use the arrow keys.",
+                         "\(metrics.perPage) apps par page · \(metrics.pages) pages. Balayez, faites défiler ou utilisez les flèches.")
+                     : L("\(metrics.perPage) apps per page.", "\(metrics.perPage) apps par page."))
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(L("Glass", "Verre"))
+                FinishSwatches(selection: $group.panel.tint, allowsNone: true)
+                VStack(spacing: 0) {
+                    Toggle(isOn: $group.panel.clearGlass) { toggleLabel(L("Clear glass", "Verre clair"), L("Lets more of the desktop through", "Laisse davantage voir le bureau")) }
+                    Divider().overlay(Brand.hairline).padding(.vertical, 10)
+                    Toggle(isOn: $group.panel.showsTitles) { toggleLabel(L("Show names", "Afficher les noms"), L("Under each icon", "Sous chaque icône")) }
+                }
+                .toggleStyle(.switch).controlSize(.small)
+                .padding(12).glassCard()
+            }
+        }
+    }
+
+    private func toggleLabel(_ title: String, _ subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text)
+            Text(subtitle).font(.system(size: 11)).foregroundStyle(Brand.tertiary)
+        }
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.system(size: 10.5)).foregroundStyle(Brand.tertiary).fixedSize(horizontal: false, vertical: true)
     }
 
     // MARK: Dock bar
@@ -644,13 +797,15 @@ private struct Inspector: View {
                 .buttonStyle(EmberButtonStyle())
                 .disabled(state == .working || nameTaken || group.apps.isEmpty)
                 .keyboardShortcut(.return, modifiers: .command)
-                footnote(L("Name, opening, icon and order change when the Dock reloads.", "Nom, ouverture, icône et ordre changent quand le Dock se recharge."))
+                footnote(L("The tile, its name and its icon change when the Dock reloads.", "La tuile, son nom et son icône changent quand le Dock se recharge."))
             case .inDock, .working:
                 HStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(Brand.success)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L("In the Dock", "Dans le Dock")).font(.system(size: 13, weight: .semibold)).foregroundStyle(Brand.text)
-                        Text(L("Apps you add or move show up there right away.", "Les apps ajoutées ou déplacées y arrivent directement."))
+                        Text(group.mode == .stack
+                             ? L("Apps you add or move show up there right away.", "Les apps ajoutées ou déplacées y arrivent directement.")
+                             : L("The panel follows every change right away.", "Le panneau suit chaque réglage directement."))
                             .font(.system(size: 11)).foregroundStyle(Brand.tertiary)
                     }
                     Spacer(minLength: 0)
@@ -676,10 +831,217 @@ private struct Inspector: View {
     }
 }
 
+// MARK: - Inspector components
+
+/// Stack or folder, side by side, each with a small picture of itself.
+private struct ModeSwitch: View {
+    @Binding var mode: GroupMode
+    @Namespace private var namespace
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(GroupMode.allCases) { option in
+                Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { mode = option } } label: {
+                    HStack(spacing: 9) {
+                        Image(systemName: option.symbol).font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(mode == option ? Brand.ember : Brand.secondary)
+                            .frame(width: 18)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(option.title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Brand.text)
+                            Text(option.subtitle).font(.system(size: 9.5)).foregroundStyle(Brand.tertiary).lineLimit(2)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .background {
+                        if mode == option {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(LinearGradient(colors: [Brand.ember.opacity(0.20), Brand.ember.opacity(0.07)], startPoint: .top, endPoint: .bottom))
+                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Brand.ember.opacity(0.45)))
+                                .matchedGeometryEffect(id: "mode", in: namespace)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.black.opacity(0.3)))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Brand.hairline))
+    }
+}
+
+/// One icon style, drawn with the group's own apps.
+private struct StyleTile: View {
+    let style: TileStyle
+    let group: DockGroup
+    let image: NSImage?
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                preview.frame(width: 40, height: 40)
+                Text(style.title).font(.system(size: 10.5, weight: .medium)).foregroundStyle(Brand.text).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity).frame(height: 84)
+            .glassCard(selected: selected)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var shown: DockGroup {
+        var copy = group
+        copy.tileStyle = style
+        return copy
+    }
+
+    @ViewBuilder private var preview: some View {
+        if style == .image && image == nil {
+            Image(systemName: "photo.badge.plus").font(.system(size: 20, weight: .light)).foregroundStyle(Brand.secondary)
+        } else {
+            DockTileIcon(group: shown, image: image, size: 40)
+        }
+    }
+}
+
+/// The finishes as round swatches; with `allowsNone`, a first “clear” one.
+private struct FinishSwatches: View {
+    @Binding var selection: Finish?
+    let allowsNone: Bool
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(26), spacing: 9), count: 8), alignment: .leading, spacing: 9) {
+            if allowsNone { swatch(nil) }
+            ForEach(Finish.allCases) { swatch($0) }
+        }
+    }
+
+    private func swatch(_ finish: Finish?) -> some View {
+        let selected = selection == finish
+        return Button { withAnimation(.easeOut(duration: 0.15)) { selection = finish } } label: {
+            ZStack {
+                if let finish {
+                    Circle().fill(LinearGradient(colors: [Color(nsColor: finish.colors.0), Color(nsColor: finish.colors.1)],
+                                                 startPoint: .top, endPoint: .bottom))
+                } else {
+                    Circle().fill(.white.opacity(0.08))
+                    Image(systemName: "circle.slash").font(.system(size: 12, weight: .medium)).foregroundStyle(Brand.secondary)
+                }
+                Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.75)
+            }
+            .frame(width: 26, height: 26)
+            .padding(3)
+            .overlay(Circle().strokeBorder(selected ? Brand.ember : .clear, lineWidth: 2))
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(finish?.title ?? L("No tint", "Sans teinte"))
+    }
+}
+
+private struct SliderRow: View {
+    let title: String
+    @Binding var value: Double
+    let range: ClosedRange<Double>
+    let step: Double
+    let display: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text)
+                Spacer()
+                Text(display).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(Brand.text)
+                    .padding(.horizontal, 8).frame(height: 22)
+                    .background(Capsule().fill(Color.white.opacity(0.08)))
+            }
+            Slider(value: $value, in: range, step: step).controlSize(.small).tint(Brand.ember)
+        }
+    }
+}
+
+private struct CountRow: View {
+    let title: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+
+    var body: some View {
+        HStack {
+            Text(title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text)
+            Spacer()
+            HStack(spacing: 0) {
+                step("minus", -1).disabled(value <= range.lowerBound)
+                Text("\(value)").font(.system(size: 12, weight: .semibold).monospacedDigit()).foregroundStyle(Brand.text)
+                    .frame(width: 28)
+                step("plus", 1).disabled(value >= range.upperBound)
+            }
+            .padding(2)
+            .background(Capsule().fill(Color.black.opacity(0.3)))
+            .overlay(Capsule().strokeBorder(Brand.hairline))
+        }
+    }
+
+    private func step(_ symbol: String, _ delta: Int) -> some View {
+        Button { value = min(range.upperBound, max(range.lowerBound, value + delta)) } label: {
+            Image(systemName: symbol).font(.system(size: 10, weight: .bold)).foregroundStyle(Brand.text)
+                .frame(width: 26, height: 24).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A tiny drawing of a panel layout.
+private struct LayoutGlyph: View {
+    let layout: PanelLayout
+    let selected: Bool
+
+    var body: some View {
+        let color = selected ? Brand.ember : Brand.secondary
+        ZStack {
+            RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(color.opacity(0.6), lineWidth: 1)
+                .frame(width: 44, height: 32)
+            switch layout {
+            case .icons:
+                grid(columns: 4, rows: 2, side: 6, color: color)
+            case .tiles:
+                grid(columns: 3, rows: 2, side: 9, color: color, radius: 2.5)
+            case .list:
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(0..<3, id: \.self) { _ in
+                        HStack(spacing: 3) {
+                            RoundedRectangle(cornerRadius: 1.5).fill(color).frame(width: 5, height: 5)
+                            Capsule().fill(color.opacity(0.6)).frame(width: 20, height: 2.5)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: 34)
+    }
+
+    private func grid(columns: Int, rows: Int, side: CGFloat, color: Color, radius: CGFloat = 1.8) -> some View {
+        VStack(spacing: 3) {
+            ForEach(0..<rows, id: \.self) { _ in
+                HStack(spacing: 3) {
+                    ForEach(0..<columns, id: \.self) { _ in
+                        RoundedRectangle(cornerRadius: radius, style: .continuous).fill(color).frame(width: side, height: side)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct AppRow: View {
     let app: AppEntry
     let label: String
-    let first: Bool
+    let note: String?
     let movable: Bool
     let remove: () -> Void
     @State private var hovered = false
@@ -694,8 +1056,8 @@ private struct AppRow: View {
                 Text(label).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text).lineLimit(1)
                 if !available {
                     Text(L("App not found", "App introuvable")).font(.system(size: 10.5)).foregroundStyle(Brand.ember)
-                } else if first {
-                    Text(L("First, right above the Dock", "En premier, contre le Dock")).font(.system(size: 10.5)).foregroundStyle(Brand.tertiary)
+                } else if let note {
+                    Text(note).font(.system(size: 10.5)).foregroundStyle(Brand.tertiary)
                 }
             }
             .opacity(available ? 1 : 0.6)
@@ -720,7 +1082,7 @@ private struct SegmentedTabs: View {
         HStack(spacing: 2) {
             ForEach(InspectorTab.allCases) { tab in
                 Button { withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { selection = tab } } label: {
-                    Text(tab.rawValue).font(.system(size: 12, weight: .semibold))
+                    Label(tab.title, systemImage: tab.symbol).labelStyle(TabLabelStyle()).font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(selection == tab ? Brand.text : Brand.secondary)
                         .frame(maxWidth: .infinity).frame(height: 28)
                         .background {
@@ -738,6 +1100,12 @@ private struct SegmentedTabs: View {
         .padding(3)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.3)))
         .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Brand.hairline))
+    }
+}
+
+private struct TabLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) { configuration.icon.font(.system(size: 10.5, weight: .semibold)); configuration.title }
     }
 }
 

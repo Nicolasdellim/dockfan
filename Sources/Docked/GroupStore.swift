@@ -8,8 +8,22 @@ import Combine
 import Foundation
 
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case apps = "Apps", style = "Style"
+    case apps, icon, opening
     var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .apps: "Apps"
+        case .icon: L("Icon", "Icône")
+        case .opening: L("Opening", "Ouverture")
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .apps: "square.grid.2x2"
+        case .icon: "paintbrush.pointed"
+        case .opening: "rectangle.on.rectangle.angled"
+        }
+    }
 }
 
 /// A short confirmation shown at the bottom of the editor.
@@ -36,6 +50,11 @@ final class GroupStore: ObservableObject {
     @Published var notice: Notice?
     @Published var error: String?
     @Published private(set) var loaded = false
+    /// Pictures chosen for icons, by file name, loaded once.
+    @Published private(set) var images: [String: NSImage] = [:]
+    /// Where a folder tile sends its click: `droppy://droplet/docked`. Set by
+    /// the droplet; `nil` in a host that can't deliver URLs.
+    var callbackBase: URL?
 
     let service: DockStackService
     private let queue = DispatchQueue(label: "docked.files", qos: .userInitiated)
@@ -56,8 +75,13 @@ final class GroupStore: ObservableObject {
         queue.async {
             let document = service.load()
             let docked = service.groupsInDock(document.groups)
+            let names = document.groups.compactMap(\.iconImage)
+            let pictures = Dictionary(names.compactMap { name in
+                (try? Data(contentsOf: service.imageURL(name))).map { (name, $0) }
+            }, uniquingKeysWith: { a, _ in a })
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
+                    for (name, data) in pictures { self.images[name] = NSImage(data: data) }
                     self.document = document
                     self.inDock = docked
                     for group in document.groups where docked.contains(group.id) { self.dockSnapshots[group.id] = group }
@@ -105,12 +129,17 @@ final class GroupStore: ObservableObject {
     func duplicate(_ group: DockGroup) {
         var copy = addGroup(named: group.name + L(" copy", " copie"),
                             apps: group.apps.map { AppEntry(name: $0.name, path: $0.path, bundleIdentifier: $0.bundleIdentifier) })
+        copy.mode = group.mode
         copy.presentation = group.presentation
-        copy.tileStyle = group.tileStyle
+        copy.tileStyle = group.tileStyle == .image ? .appGrid : group.tileStyle
         copy.order = group.order
         copy.showsExtension = group.showsExtension
+        copy.stackGridIconSize = group.stackGridIconSize
+        copy.iconFinish = group.iconFinish
+        copy.iconGrid = group.iconGrid
+        copy.panel = group.panel
         update(copy)
-        show("plus.square.on.square", "Groupe dupliqué")
+        show("plus.square.on.square", L("Group duplicated", "Groupe dupliqué"))
     }
 
     /// Whether another group already uses this name, which would make the
@@ -158,24 +187,50 @@ final class GroupStore: ObservableObject {
             if wasInDock { service.removeFromDock(docked); service.restartDock() }
             service.removeFolder(for: group)
             service.removeFolder(for: docked)
+            service.removeLauncher(for: group)
+            service.removeImage(group.iconImage)
         }
-        show("trash", "« \(group.name) » supprimé")
+        if let name = group.iconImage { images[name] = nil }
+        show("trash", L("“\(group.name)” deleted", "« \(group.name) » supprimé"))
     }
 
     // MARK: Dock
 
-    /// Writes the folder, then adds or updates the stack and reloads the Dock.
+    /// Writes what the group needs (its folder of aliases, its icon, its
+    /// launcher), puts its tile in the Dock and reloads the Dock.
     func applyToDock(_ group: DockGroup) {
         guard !group.apps.isEmpty else { error = DockStackError.noApps.localizedDescription; return }
         guard !working.contains(group.id) else { return }
+        if group.mode == .folder, callbackBase == nil {
+            error = L("This version of Droppy can’t open folders from the Dock. Update Droppy, or use a stack.",
+                      "Cette version de Droppy ne peut pas ouvrir de dossier depuis le Dock. Mettez Droppy à jour, ou utilisez une pile.")
+            return
+        }
         let service = service, previous = dockSnapshots[group.id], wasInDock = inDock.contains(group.id)
+        // Drawing needs the main actor; the files and the Dock don't.
+        let icon = group.effectiveTileStyle.isComposed ? ComposedIcon.pngData(for: group, image: image(for: group)) : nil
+        let openURL = callbackBase.flatMap { base -> URL? in
+            var components = URLComponents(url: base.appendingPathComponent("open"), resolvingAgainstBaseURL: false)
+            components?.queryItems = [URLQueryItem(name: "group", value: group.id.uuidString)]
+            return components?.url
+        }
         working.insert(group.id)
         queue.async {
             do {
-                try service.writeFolder(for: group)
+                switch group.mode {
+                case .stack:
+                    try service.writeFolder(for: group)
+                    service.setFolderIcon(icon, for: group)
+                case .folder:
+                    guard let openURL else { throw DockStackError.launcherFailed("URL") }
+                    try service.writeLauncher(for: group, iconPNG: icon, openURL: openURL)
+                }
                 try service.putInDock(group, previous: previous)
                 service.restartDock()
-                if let previous, previous.folderName != group.folderName { service.removeFolder(for: previous) }
+                if let previous, previous.folderName != group.folderName || group.mode == .folder {
+                    service.removeFolder(for: previous)
+                }
+                if group.mode == .stack { service.removeLauncher(for: group) }
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {
                         self.working.remove(group.id)
@@ -203,12 +258,13 @@ final class GroupStore: ObservableObject {
         queue.async {
             service.removeFromDock(docked)
             service.restartDock()
+            service.removeLauncher(for: group)
             if docked.folderName != group.folderName {
                 service.removeFolder(for: docked)
                 try? service.writeFolder(for: group)
             }
         }
-        show("minus.circle", "Retiré du Dock")
+        show("minus.circle", L("Removed from the Dock", "Retiré du Dock"))
     }
 
     func revealInFinder(_ group: DockGroup) {
@@ -227,6 +283,57 @@ final class GroupStore: ObservableObject {
         var target = group
         if inDock.contains(group.id), let snapshot = dockSnapshots[group.id] { target.name = snapshot.name }
         return target
+    }
+
+    // MARK: Looks
+
+    func image(for group: DockGroup) -> NSImage? { group.iconImage.flatMap { images[$0] } }
+
+    /// Copies a picture into Docked's folder and makes it the group's icon.
+    func importImage(from url: URL, for id: UUID) {
+        let service = service
+        let access = url.startAccessingSecurityScopedResource()
+        queue.async {
+            defer { if access { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let name = try service.importImage(from: url)
+                let data = try Data(contentsOf: service.imageURL(name))
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated {
+                        guard var group = self.groups.first(where: { $0.id == id }) else { return }
+                        let old = group.iconImage
+                        self.images[name] = NSImage(data: data)
+                        group.iconImage = name
+                        group.tileStyle = .image
+                        self.update(group)
+                        // The old picture stays while the Dock may still show it.
+                        if let old, old != self.dockSnapshots[id]?.iconImage {
+                            self.images[old] = nil
+                            self.queue.async { service.removeImage(old) }
+                        }
+                    }
+                }
+            } catch {
+                let message = error.localizedDescription
+                DispatchQueue.main.async { MainActor.assumeIsolated { self.error = message } }
+            }
+        }
+    }
+
+    /// A random look, as TinyFolder's shuffle: a finish, a grid and, for a
+    /// folder, a panel tint and layout.
+    func shuffleLook(of group: DockGroup) {
+        var group = group
+        let finishes = Finish.allCases.filter { $0 != group.iconFinish }
+        group.iconFinish = finishes.randomElement() ?? .glass
+        if group.tileStyle != .image { group.tileStyle = .appGrid }
+        group.iconGrid = group.apps.count > 4 && Bool.random() ? 3 : 2
+        if group.mode == .folder {
+            group.panel.tint = Bool.random() ? nil : Finish.allCases.randomElement()
+            group.panel.clearGlass = Bool.random()
+            group.panel.layout = [.icons, .icons, .tiles].randomElement() ?? .icons
+        }
+        update(group)
     }
 
     // MARK: Notices
@@ -265,7 +372,8 @@ final class GroupStore: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, self.writeGenerations[group.id] == generation,
-                      let current = self.groups.first(where: { $0.id == group.id }) else { return }
+                      let current = self.groups.first(where: { $0.id == group.id }),
+                      current.mode == .stack else { return }
                 let target = self.folderGroup(for: current)
                 let service = self.service
                 self.queue.async { try? service.writeFolder(for: target) }
@@ -275,9 +383,22 @@ final class GroupStore: ObservableObject {
 }
 
 extension DockGroup {
-    /// Settings the Dock reads only when it starts.
+    /// Settings the Dock reads only when it starts: its tile, its label, its
+    /// icon. The apps of a stack reach it on their own; the panel of a folder
+    /// is Docked's and changes at once.
     func differsForDock(from other: DockGroup) -> Bool {
-        folderName != other.folderName || presentation != other.presentation
-            || tileStyle != other.tileStyle || order != other.order
+        if folderName != other.folderName || mode != other.mode || effectiveTileStyle != other.effectiveTileStyle { return true }
+        if mode == .stack, presentation != other.presentation || order != other.order
+            || stackGridIconSize != other.stackGridIconSize { return true }
+        switch effectiveTileStyle {
+        case .appGrid:
+            let n = iconGrid * iconGrid
+            return iconFinish != other.iconFinish || iconGrid != other.iconGrid
+                || displayedApps.prefix(n).map(\.path) != other.displayedApps.prefix(n).map(\.path)
+        case .image:
+            return iconImage != other.iconImage
+        case .stack, .folder:
+            return false
+        }
     }
 }
