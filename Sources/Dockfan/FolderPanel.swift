@@ -93,7 +93,10 @@ struct FolderPanelView: View {
     /// The icon on the view's axis, the name on its chosen side.
     private func row(_ app: AppEntry, metrics: PanelMetrics) -> some View {
         let lit = hovered == app.id
-        let label = Group {
+        // The name's column keeps its width even when names are hidden, so
+        // the icons stay centred above the tile.
+        let label = ZStack(alignment: style.labelsLeft ? .trailing : .leading) {
+            Color.clear
             if style.showsLabels {
                 Text(app.name).font(.system(size: style.labelSize, weight: .semibold)).lineLimit(1)
                     .foregroundStyle(style.lightPills ? Color.black.opacity(0.85) : .white)

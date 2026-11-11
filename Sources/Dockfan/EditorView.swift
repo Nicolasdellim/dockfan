@@ -641,10 +641,10 @@ private struct Inspector: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "info.circle.fill").font(.system(size: 13)).foregroundStyle(Brand.ember)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(L("This group uses macOS’s own fan, which can’t be customised. Switch to Dockfan’s fan to use the settings below.",
-                               "Ce groupe utilise l’éventail de macOS, qui ne se personnalise pas. Passez à l’éventail Dockfan pour utiliser les réglages ci-dessous."))
+                        Text(L("This group uses macOS’s own fan, which can’t be customised. Switch to the custom fan to use the settings below.",
+                               "Ce groupe utilise l’éventail de macOS, qui ne se personnalise pas. Passez à l’éventail personnalisé pour utiliser les réglages ci-dessous."))
                             .font(.system(size: 11)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
-                        Button { withAnimation { group.mode = .folder } } label: { Label(L("Use Dockfan’s fan", "Utiliser l’éventail Dockfan"), systemImage: "wand.and.stars") }
+                        Button { withAnimation { group.mode = .folder } } label: { Label(L("Use the custom fan", "Utiliser l’éventail personnalisé"), systemImage: "wand.and.stars") }
                             .buttonStyle(QuietButtonStyle(compact: true))
                     }
                 }
@@ -1013,18 +1013,25 @@ private struct ColorRow: View {
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 7), count: 8), alignment: .leading, spacing: 7) {
                 swatch(nil)
                 ForEach(Finish.allCases) { swatch($0) }
-                ColorPicker("", selection: custom, supportsOpacity: false)
-                    .labelsHidden().frame(width: 24, height: 24)
-                    .overlay(Circle().strokeBorder(style.customTint != nil ? Brand.ember : .clear, lineWidth: 2).padding(-3).allowsHitTesting(false))
-                    .help(L("A colour of your own", "Votre propre couleur"))
+                Button { ColorWheel.open(current: style.tintColor) { style.customTint = $0.hexString } } label: {
+                    ZStack {
+                        Circle().fill(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center))
+                        if let custom = style.customTint, let color = NSColor(hex: custom) {
+                            Circle().fill(Color(nsColor: color)).padding(6)
+                                .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 1).padding(6))
+                        }
+                        Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.75)
+                    }
+                    .frame(width: 24, height: 24)
+                    .overlay(Circle().strokeBorder(style.customTint != nil ? Brand.ember : .clear, lineWidth: 2).padding(-3))
+                    .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(L("Any colour", "N’importe quelle couleur"))
             }
         }
     }
 
-    private var custom: Binding<Color> {
-        Binding(get: { Color(nsColor: style.tintColor ?? .white) },
-                set: { style.customTint = NSColor($0).hexString })
-    }
 
     private func swatch(_ finish: Finish?) -> some View {
         let selected = style.customTint == nil && style.tint == finish
@@ -1341,4 +1348,27 @@ private nonisolated func loadApps(from providers: [NSItemProvider], completion: 
         }
     }
     group.notify(queue: .main) { completion(results.ordered) }
+}
+
+/// The system colour wheel, sending each colour picked to one closure.
+@MainActor
+enum ColorWheel {
+    private final class Receiver: NSObject {
+        var onPick: (NSColor) -> Void = { _ in }
+        @objc func changed(_ panel: NSColorPanel) { onPick(panel.color) }
+    }
+    private static let receiver = Receiver()
+
+    static func open(current: NSColor?, onPick: @escaping (NSColor) -> Void) {
+        let panel = NSColorPanel.shared
+        panel.showsAlpha = false
+        receiver.onPick = { _ in }
+        if let current { panel.color = current }
+        receiver.onPick = onPick
+        panel.setTarget(receiver)
+        panel.setAction(#selector(Receiver.changed(_:)))
+        panel.isContinuous = true
+        panel.level = .floating
+        panel.orderFront(nil)
+    }
 }

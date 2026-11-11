@@ -15,7 +15,7 @@ enum GroupMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// A tile among the apps that opens Dockfan's own glass panel.
     case folder
     var id: String { rawValue }
-    var title: String { self == .stack ? L("macOS fan", "Éventail macOS") : L("Dockfan fan", "Éventail Dockfan") }
+    var title: String { self == .stack ? L("macOS fan", "Éventail macOS") : L("Custom fan", "Éventail personnalisé") }
     var subtitle: String {
         self == .stack
             ? L("The Dock’s own animation, beside the Trash. No settings.", "L’animation du Dock, près de la corbeille. Aucun réglage.")
