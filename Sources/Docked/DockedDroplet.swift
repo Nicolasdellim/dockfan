@@ -90,7 +90,9 @@ public final class DockedDroplet: NSObject, ObservableObject, Droplet {
     /// Opens a group's panel, whatever its mode: from its folder tile, or
     /// from its shortcut.
     func togglePanel(_ id: UUID) {
-        guard let group = store?.groups.first(where: { $0.id == id }) else { return }
+        guard var group = store?.groups.first(where: { $0.id == id }) else { return }
+        // A macOS stack opened by its shortcut shows the same view, drawn by Docked.
+        if group.mode == .stack { group.panel.layout = group.view }
         panel.toggle(group)
     }
 

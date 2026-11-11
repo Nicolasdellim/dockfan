@@ -48,15 +48,12 @@ struct StackPreview: View {
     private func folderPanel(fitting space: CGSize) -> some View {
         let size = PanelMetrics(style: group.panel, count: apps.count).size
         let scale = min(1, (space.width - 40) / size.width, (space.height - 170) / size.height)
-        return FolderPanelView(group: group, interactive: false)
+        return FolderPanelView(group: group, interactive: false, opened: expanded)
+            .frame(width: size.width, height: size.height, alignment: .bottom)
             .scaleEffect(max(0.3, scale), anchor: .bottom)
             .frame(width: size.width * max(0.3, scale), height: size.height * max(0.3, scale))
-            .padding(.bottom, 14)
+            .padding(.bottom, group.panel.layout == .fan ? 18 : 14)
             .frame(maxWidth: .infinity)
-            .scaleEffect(expanded ? 1 : 0.86, anchor: .bottom)
-            .offset(y: expanded ? 0 : 16)
-            .opacity(expanded ? 1 : 0)
-            .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.8), value: expanded)
     }
 
     // MARK: Open stack

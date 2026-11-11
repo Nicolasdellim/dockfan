@@ -8,20 +8,20 @@ import Combine
 import Foundation
 
 enum InspectorTab: String, CaseIterable, Identifiable {
-    case apps, icon, opening
+    case apps, opening, icon
     var id: String { rawValue }
     var title: String {
         switch self {
         case .apps: "Apps"
-        case .icon: L("Icon", "Icône")
-        case .opening: L("Opening", "Ouverture")
+        case .icon: L("Dock icon", "Icône")
+        case .opening: L("Display", "Affichage")
         }
     }
     var symbol: String {
         switch self {
         case .apps: "square.grid.2x2"
-        case .icon: "paintbrush.pointed"
-        case .opening: "rectangle.on.rectangle.angled"
+        case .icon: "app.badge"
+        case .opening: "rectangle.stack"
         }
     }
 }
@@ -42,6 +42,8 @@ final class GroupStore: ObservableObject {
     @Published private(set) var document = GroupDocument()
     @Published var selection: UUID?
     @Published var inspectorTab: InspectorTab = .apps
+    /// The group whose name is being edited in the sidebar.
+    @Published var renaming: UUID?
     @Published private(set) var inDock: Set<UUID> = []
     /// Groups whose Dock-level settings changed since the Dock last read them.
     @Published private(set) var pendingDock: Set<UUID> = []
@@ -117,7 +119,9 @@ final class GroupStore: ObservableObject {
         while groups.contains(where: { $0.folderName.lowercased() == DockGroup(name: name).folderName.lowercased() }) {
             name = "\(base) \(index)"; index += 1
         }
-        let group = DockGroup(name: name, apps: apps)
+        var group = DockGroup(name: name, apps: apps)
+        // New groups are drawn by Docked, with their apps as the icon.
+        if callbackBase != nil { group.mode = .folder; group.tileStyle = .appGrid }
         document.groups.append(group)
         selection = group.id
         inspectorTab = .apps
@@ -167,6 +171,24 @@ final class GroupStore: ObservableObject {
         if inDock.contains(group.id), let snapshot = dockSnapshots[group.id] {
             if snapshot.differsForDock(from: group) { pendingDock.insert(group.id) } else { pendingDock.remove(group.id) }
         }
+    }
+
+    /// Renames a group; a name another group has is refused. A docked
+    /// group's tile follows on the next “Apply to Dock”.
+    @discardableResult
+    func rename(_ id: UUID, to name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, var group = groups.first(where: { $0.id == id }) else { return false }
+        guard !nameIsTaken(trimmed, by: id) else {
+            error = L("Another group is already called “\(trimmed)”.", "Un autre groupe s’appelle déjà « \(trimmed) ».")
+            return false
+        }
+        guard group.name != trimmed else { return true }
+        group.name = trimmed
+        update(group)
+        show("pencil", inDock.contains(id) ? L("Renamed. Apply to update the Dock.", "Renommé. Appliquez pour mettre le Dock à jour.")
+                                           : L("Renamed “\(trimmed)”", "Renommé « \(trimmed) »"))
+        return true
     }
 
     func moveGroups(from source: IndexSet, to destination: Int) {
@@ -328,11 +350,20 @@ final class GroupStore: ObservableObject {
         group.iconFinish = finishes.randomElement() ?? .glass
         if group.tileStyle != .image { group.tileStyle = .appGrid }
         group.iconGrid = group.apps.count > 4 && Bool.random() ? 3 : 2
-        if group.mode == .folder {
-            group.panel.tint = Bool.random() ? nil : Finish.allCases.randomElement()
-            group.panel.clearGlass = Bool.random()
-            group.panel.layout = [.icons, .icons, .tiles].randomElement() ?? .icons
-        }
+        update(group)
+    }
+
+    /// A random look for how the group opens; the view and sizes stay.
+    func shuffleOpening(of group: DockGroup) {
+        var group = group
+        LookPreset.all.randomElement()?.apply(&group.panel)
+        group.panel.customTint = nil
+        group.panel.tint = Bool.random() ? nil : Finish.allCases.randomElement()
+        group.panel.tintStrength = Double.random(in: 0.25...0.6)
+        group.panel.cornerRadius = [14, 20, 26, 32].randomElement() ?? 26
+        group.panel.opening = OpenAnimation.allCases.randomElement() ?? .spring
+        group.panel.fanLabels = [.pill, .glass].randomElement() ?? .pill
+        group.panel.tiles = Bool.random()
         update(group)
     }
 
