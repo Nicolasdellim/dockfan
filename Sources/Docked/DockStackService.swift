@@ -288,8 +288,7 @@ struct DockStackService: Sendable {
                 "arrangement": group.order.dockArrangement,
                 // A composed icon is the folder's own icon, shown as a folder.
                 "displayas": group.effectiveTileStyle == .stack ? 0 : 1,
-                "showas": group.presentation.rawValue,
-                "preferreditemsize": group.stackGridIconSize > 0 ? Int(group.stackGridIconSize) : -1,
+                "showas": StackPresentation.fan.rawValue,
             ] as [String: Any],
         ]
     }

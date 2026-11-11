@@ -14,7 +14,7 @@ enum InspectorTab: String, CaseIterable, Identifiable {
         switch self {
         case .apps: "Apps"
         case .icon: L("Dock icon", "Icône")
-        case .opening: L("Display", "Affichage")
+        case .opening: L("Fan", "Éventail")
         }
     }
     var symbol: String {
@@ -134,11 +134,10 @@ final class GroupStore: ObservableObject {
         var copy = addGroup(named: group.name + L(" copy", " copie"),
                             apps: group.apps.map { AppEntry(name: $0.name, path: $0.path, bundleIdentifier: $0.bundleIdentifier) })
         copy.mode = group.mode
-        copy.presentation = group.presentation
         copy.tileStyle = group.tileStyle == .image ? .appGrid : group.tileStyle
         copy.order = group.order
         copy.showsExtension = group.showsExtension
-        copy.stackGridIconSize = group.stackGridIconSize
+        copy.iconApp = nil
         copy.iconFinish = group.iconFinish
         copy.iconGrid = group.iconGrid
         copy.panel = group.panel
@@ -230,7 +229,9 @@ final class GroupStore: ObservableObject {
         }
         let service = service, previous = dockSnapshots[group.id], wasInDock = inDock.contains(group.id)
         // Drawing needs the main actor; the files and the Dock don't.
-        let icon = group.effectiveTileStyle.isComposed ? ComposedIcon.pngData(for: group, image: image(for: group)) : nil
+        // A launcher always carries an icon; a stack only a composed one.
+        let icon = group.effectiveTileStyle.isComposed || group.mode == .folder
+            ? ComposedIcon.pngData(for: group, image: image(for: group)) : nil
         let openURL = callbackBase.flatMap { base -> URL? in
             var components = URLComponents(url: base.appendingPathComponent("open"), resolvingAgainstBaseURL: false)
             components?.queryItems = [URLQueryItem(name: "group", value: group.id.uuidString)]
@@ -353,17 +354,16 @@ final class GroupStore: ObservableObject {
         update(group)
     }
 
-    /// A random look for how the group opens; the view and sizes stay.
+    /// A random fan: a preset, a colour, a curve and a motion.
     func shuffleOpening(of group: DockGroup) {
         var group = group
         LookPreset.all.randomElement()?.apply(&group.panel)
         group.panel.customTint = nil
-        group.panel.tint = Bool.random() ? nil : Finish.allCases.randomElement()
-        group.panel.tintStrength = Double.random(in: 0.25...0.6)
-        group.panel.cornerRadius = [14, 20, 26, 32].randomElement() ?? 26
+        group.panel.tint = Finish.allCases.randomElement()
+        group.panel.labels = FanLabels.allCases.randomElement() ?? .dark
+        group.panel.curve = [0, 0.3, 0.55, 0.9].randomElement() ?? 0.55
         group.panel.opening = OpenAnimation.allCases.randomElement() ?? .spring
-        group.panel.fanLabels = [.pill, .glass].randomElement() ?? .pill
-        group.panel.tiles = Bool.random()
+        group.panel.hover = [.zoom, .glow].randomElement() ?? .zoom
         update(group)
     }
 
@@ -419,8 +419,7 @@ extension DockGroup {
     /// is Docked's and changes at once.
     func differsForDock(from other: DockGroup) -> Bool {
         if folderName != other.folderName || mode != other.mode || effectiveTileStyle != other.effectiveTileStyle { return true }
-        if mode == .stack, presentation != other.presentation || order != other.order
-            || stackGridIconSize != other.stackGridIconSize { return true }
+        if mode == .stack, order != other.order { return true }
         switch effectiveTileStyle {
         case .appGrid:
             let n = iconGrid * iconGrid
@@ -428,6 +427,8 @@ extension DockGroup {
                 || displayedApps.prefix(n).map(\.path) != other.displayedApps.prefix(n).map(\.path)
         case .image:
             return iconImage != other.iconImage
+        case .singleApp:
+            return singleApp?.path != other.singleApp?.path
         case .stack, .folder:
             return false
         }

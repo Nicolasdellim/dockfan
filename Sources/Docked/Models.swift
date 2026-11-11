@@ -15,11 +15,11 @@ enum GroupMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// A tile among the apps that opens Docked's own glass panel.
     case folder
     var id: String { rawValue }
-    var title: String { self == .stack ? "macOS" : "Docked" }
+    var title: String { self == .stack ? L("macOS fan", "Éventail macOS") : L("Docked fan", "Éventail Docked") }
     var subtitle: String {
         self == .stack
-            ? L("The Dock’s own stack, beside the Trash. Few options.", "La pile du Dock, près de la corbeille. Peu d’options.")
-            : L("Drawn by Docked, among your apps. Everything is yours to set.", "Dessiné par Docked, parmi vos apps. Tout se règle.")
+            ? L("The Dock’s own animation, beside the Trash. No settings.", "L’animation du Dock, près de la corbeille. Aucun réglage.")
+            : L("A tile among your apps. Every setting above applies.", "Une tuile parmi vos apps. Tous les réglages ci-dessus s’appliquent.")
     }
     var symbol: String { self == .stack ? "rectangle.stack" : "square.grid.2x2" }
 }
@@ -64,20 +64,23 @@ enum TileStyle: Int, Codable, CaseIterable, Identifiable, Sendable {
     case appGrid = 2
     /// A picture of the user's.
     case image = 3
+    /// One app's icon, chosen among the group's.
+    case singleApp = 4
     var id: Int { rawValue }
     var title: String {
         switch self {
         case .stack: L("App stack", "Pile d’apps")
         case .folder: L("Folder", "Dossier")
-        case .appGrid: L("App grid", "Grille d’apps")
-        case .image: L("Picture", "Image")
+        case .appGrid: L("Several apps", "Plusieurs apps")
+        case .image: L("Photo", "Photo")
+        case .singleApp: L("One app", "Une app")
         }
     }
     static func available(for mode: GroupMode) -> [TileStyle] {
-        mode == .stack ? [.stack, .appGrid, .image, .folder] : [.appGrid, .image]
+        mode == .stack ? [.appGrid, .singleApp, .image, .folder, .stack] : [.appGrid, .singleApp, .image, .folder]
     }
     /// Styles drawn by Docked and set as the icon of the folder or launcher.
-    var isComposed: Bool { self == .appGrid || self == .image }
+    var isComposed: Bool { self == .appGrid || self == .image || self == .singleApp }
 }
 
 /// Order of the apps.
@@ -129,68 +132,29 @@ enum Finish: String, Codable, CaseIterable, Identifiable, Sendable {
     var isLight: Bool { self == .snow || self == .glass }
 }
 
-/// How a group opens: the choice the editor puts first.
-enum PanelLayout: String, Codable, CaseIterable, Identifiable, Sendable {
-    case fan, grid, list
+/// How the fan shows each app's name.
+enum FanLabels: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// Black pills, as macOS draws them.
+    case dark
+    /// Pills in the chosen colour.
+    case color
+    /// Liquid Glass pills.
+    case glass
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .fan: L("Fan", "Éventail")
-        case .grid: L("Grid", "Grille")
-        case .list: L("List", "Liste")
-        }
-    }
-    var subtitle: String {
-        switch self {
-        case .fan: L("Icons rise in an arc", "Les icônes montent en arc")
-        case .grid: L("A panel of icons", "Un panneau d’icônes")
-        case .list: L("Names in a column", "Les noms en colonne")
-        }
-    }
-    var symbol: String {
-        switch self {
-        case .fan: "rectangle.stack"
-        case .grid: "square.grid.3x3"
-        case .list: "list.bullet"
-        }
-    }
-    /// The Dock's own presentation for the same view.
-    var native: StackPresentation {
-        switch self {
-        case .fan: .fan
-        case .grid: .grid
-        case .list: .list
+        case .dark: L("Dark", "Sombre")
+        case .color: L("Colour", "Couleur")
+        case .glass: L("Glass", "Verre")
         }
     }
 
-    /// Reads the layouts of earlier versions: icons and tiles are grids now.
+    /// Reads the values of earlier versions.
     init(from decoder: Decoder) throws {
         switch try decoder.singleValueContainer().decode(String.self) {
-        case "fan": self = .fan
-        case "list": self = .list
-        default: self = .grid
-        }
-    }
-}
-
-/// What the panel and the fan's names are made of.
-enum GlassMaterial: String, Codable, CaseIterable, Identifiable, Sendable {
-    case liquid, clear, frosted, solid
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .liquid: "Liquid Glass"
-        case .clear: L("Clear glass", "Verre clair")
-        case .frosted: L("Frosted", "Givré")
-        case .solid: L("Solid", "Plein")
-        }
-    }
-    var subtitle: String {
-        switch self {
-        case .liquid: L("macOS 26’s glass", "Le verre de macOS 26")
-        case .clear: L("More of the desktop", "Plus de bureau visible")
-        case .frosted: L("Soft blur", "Flou doux")
-        case .solid: L("An opaque colour", "Une couleur opaque")
+        case "color": self = .color
+        case "glass": self = .glass
+        default: self = .dark
         }
     }
 }
@@ -220,136 +184,85 @@ enum OpenAnimation: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// How the fan shows each app's name.
-enum FanLabels: String, Codable, CaseIterable, Identifiable, Sendable {
-    case pill, glass, none
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .pill: L("Pill", "Pastille")
-        case .glass: L("Glass", "Verre")
-        case .none: L("Hidden", "Masqués")
-        }
-    }
-}
-
-/// Everything about how Docked draws a group when it opens.
+/// Everything about the fan Docked draws.
 struct PanelStyle: Codable, Equatable, Sendable {
-    var layout: PanelLayout = .fan
-    // Grid
-    var columns = 4
-    var rows = 2
-    var iconSize: Double = 56
-    var tiles = false
-    var showsTitles = true
-    var showsHeader = true
-    var hover: HoverEffect = .zoom
-    // List
-    var listRows = 8
-    var listIconSize: Double = 28
-    // Fan
-    var fanIconSize: Double = 52
-    var fanCount = 9
-    var fanSpacing: Double = 8
-    var fanCurve: Double = 0.55
-    var fanLabels: FanLabels = .pill
-    // Look
-    var material: GlassMaterial = .liquid
-    /// The glass's tint; `nil` with no custom colour is untinted.
+    var iconSize: Double = 52
+    /// The gap between two icons.
+    var spacing: Double = 8
+    /// How much the fan bends; 0 is straight up.
+    var curve: Double = 0.55
+    /// Bends to the right as macOS does, or to the left.
+    var bendsRight = true
+    var shadows = true
+    // Names
+    var showsLabels = true
+    var labels: FanLabels = .dark
+    var labelSize: Double = 12.5
+    /// Names on the left of the icons, as macOS; or on the right.
+    var labelsLeft = true
+    /// The colour of colour and glass pills, and of the glow.
     var tint: Finish? = nil
     /// A colour of the user's, `#RRGGBB`, over `tint`.
     var customTint: String? = nil
-    var tintStrength: Double = 0.45
-    var cornerRadius: Double = 26
+    // Motion
     var opening: OpenAnimation = .spring
+    /// The delay between one icon and the next, in seconds.
+    var cascade: Double = 0.022
+    var hover: HoverEffect = .zoom
 
     init() {}
 
-    var perPage: Int {
-        switch layout {
-        case .fan: max(1, fanCount)
-        case .grid: max(1, columns) * max(1, rows)
-        case .list: max(1, listRows)
-        }
-    }
-
-    /// The tint as a colour, from the custom one or the finish.
     var tintColor: NSColor? {
         if let customTint, let color = NSColor(hex: customTint) { return color }
         return tint?.colors.0
     }
 
-    /// Whether text on this glass should be dark.
-    var isLight: Bool {
-        guard let color = tintColor?.usingColorSpace(.sRGB) else { return false }
-        let luminance = 0.2126 * color.redComponent + 0.7152 * color.greenComponent + 0.0722 * color.blueComponent
-        let weight = material == .solid ? 1 : tintStrength
-        return luminance > 0.62 && weight > 0.35
+    /// Whether text on a pill of this colour should be dark.
+    var lightPills: Bool {
+        guard labels != .dark, let color = tintColor?.usingColorSpace(.sRGB) else { return false }
+        return 0.2126 * color.redComponent + 0.7152 * color.greenComponent + 0.0722 * color.blueComponent > 0.65
     }
 
     private enum CodingKeys: String, CodingKey {
-        case layout, columns, rows, iconSize, tiles, showsTitles, showsHeader, hover, listRows, listIconSize,
-             fanIconSize, fanCount, fanSpacing, fanCurve, fanLabels, material, tint, customTint, tintStrength,
-             cornerRadius, opening = "animation", clearGlass
+        case iconSize = "fanIconSize", spacing = "fanSpacing", curve = "fanCurve", bendsRight, shadows,
+             showsLabels, labels = "fanLabels", labelSize, labelsLeft, tint, customTint, opening = "animation", cascade, hover
     }
 
     /// Reads any earlier version: a missing key keeps its default.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let rawLayout = try c.decodeIfPresent(String.self, forKey: .layout)
-        layout = try c.decodeIfPresent(PanelLayout.self, forKey: .layout) ?? .fan
-        columns = try c.decodeIfPresent(Int.self, forKey: .columns) ?? 4
-        rows = try c.decodeIfPresent(Int.self, forKey: .rows) ?? 2
-        iconSize = try c.decodeIfPresent(Double.self, forKey: .iconSize) ?? 56
-        tiles = try c.decodeIfPresent(Bool.self, forKey: .tiles) ?? (rawLayout == "tiles")
-        showsTitles = try c.decodeIfPresent(Bool.self, forKey: .showsTitles) ?? true
-        showsHeader = try c.decodeIfPresent(Bool.self, forKey: .showsHeader) ?? true
-        hover = try c.decodeIfPresent(HoverEffect.self, forKey: .hover) ?? .zoom
-        listRows = try c.decodeIfPresent(Int.self, forKey: .listRows) ?? 8
-        listIconSize = try c.decodeIfPresent(Double.self, forKey: .listIconSize) ?? 28
-        fanIconSize = try c.decodeIfPresent(Double.self, forKey: .fanIconSize) ?? 52
-        fanCount = try c.decodeIfPresent(Int.self, forKey: .fanCount) ?? 9
-        fanSpacing = try c.decodeIfPresent(Double.self, forKey: .fanSpacing) ?? 8
-        fanCurve = try c.decodeIfPresent(Double.self, forKey: .fanCurve) ?? 0.55
-        fanLabels = try c.decodeIfPresent(FanLabels.self, forKey: .fanLabels) ?? .pill
-        let clear = try c.decodeIfPresent(Bool.self, forKey: .clearGlass) ?? false
-        material = try c.decodeIfPresent(GlassMaterial.self, forKey: .material) ?? (clear ? .clear : .liquid)
+        let rawLabels = try? c.decodeIfPresent(String.self, forKey: .labels)
+        iconSize = try c.decodeIfPresent(Double.self, forKey: .iconSize) ?? 52
+        spacing = try c.decodeIfPresent(Double.self, forKey: .spacing) ?? 8
+        curve = try c.decodeIfPresent(Double.self, forKey: .curve) ?? 0.55
+        bendsRight = try c.decodeIfPresent(Bool.self, forKey: .bendsRight) ?? true
+        shadows = try c.decodeIfPresent(Bool.self, forKey: .shadows) ?? true
+        showsLabels = try c.decodeIfPresent(Bool.self, forKey: .showsLabels) ?? (rawLabels != "none")
+        labels = try c.decodeIfPresent(FanLabels.self, forKey: .labels) ?? .dark
+        labelSize = try c.decodeIfPresent(Double.self, forKey: .labelSize) ?? 12.5
+        labelsLeft = try c.decodeIfPresent(Bool.self, forKey: .labelsLeft) ?? true
         tint = try c.decodeIfPresent(Finish.self, forKey: .tint)
         customTint = try c.decodeIfPresent(String.self, forKey: .customTint)
-        tintStrength = try c.decodeIfPresent(Double.self, forKey: .tintStrength) ?? 0.45
-        cornerRadius = try c.decodeIfPresent(Double.self, forKey: .cornerRadius) ?? 26
-        opening = try c.decodeIfPresent(OpenAnimation.self, forKey: .opening) ?? .spring
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(layout, forKey: .layout); try c.encode(columns, forKey: .columns); try c.encode(rows, forKey: .rows)
-        try c.encode(iconSize, forKey: .iconSize); try c.encode(tiles, forKey: .tiles); try c.encode(showsTitles, forKey: .showsTitles)
-        try c.encode(showsHeader, forKey: .showsHeader); try c.encode(hover, forKey: .hover); try c.encode(listRows, forKey: .listRows)
-        try c.encode(listIconSize, forKey: .listIconSize); try c.encode(fanIconSize, forKey: .fanIconSize)
-        try c.encode(fanCount, forKey: .fanCount); try c.encode(fanSpacing, forKey: .fanSpacing); try c.encode(fanCurve, forKey: .fanCurve)
-        try c.encode(fanLabels, forKey: .fanLabels); try c.encode(material, forKey: .material)
-        try c.encodeIfPresent(tint, forKey: .tint); try c.encodeIfPresent(customTint, forKey: .customTint)
-        try c.encode(tintStrength, forKey: .tintStrength); try c.encode(cornerRadius, forKey: .cornerRadius)
-        try c.encode(opening, forKey: .opening)
+        opening = (try? c.decodeIfPresent(OpenAnimation.self, forKey: .opening)) ?? .spring
+        cascade = try c.decodeIfPresent(Double.self, forKey: .cascade) ?? 0.022
+        hover = (try? c.decodeIfPresent(HoverEffect.self, forKey: .hover)) ?? .zoom
     }
 }
 
-/// Ready-made looks, as TinyFolder's presets. They change the look, never
-/// the view or the sizes.
+/// Ready-made fans. They change the look, never the apps.
 struct LookPreset: Identifiable, Sendable {
     let id: String
     let title: String
     let apply: @Sendable (inout PanelStyle) -> Void
 
     static let all: [LookPreset] = [
-        LookPreset(id: "glass", title: L("Glass", "Verre")) { $0.material = .liquid; $0.tint = nil; $0.customTint = nil; $0.cornerRadius = 26; $0.hover = .zoom },
-        LookPreset(id: "crystal", title: L("Crystal", "Cristal")) { $0.material = .clear; $0.tint = .snow; $0.customTint = nil; $0.tintStrength = 0.2; $0.cornerRadius = 30; $0.hover = .glow },
-        LookPreset(id: "ember", title: L("Ember", "Braise")) { $0.material = .liquid; $0.tint = .ember; $0.customTint = nil; $0.tintStrength = 0.5; $0.cornerRadius = 26; $0.hover = .zoom },
-        LookPreset(id: "ocean", title: L("Ocean", "Océan")) { $0.material = .frosted; $0.tint = .ocean; $0.customTint = nil; $0.tintStrength = 0.45; $0.cornerRadius = 22; $0.hover = .glow },
-        LookPreset(id: "night", title: L("Night", "Nuit")) { $0.material = .solid; $0.tint = .graphite; $0.customTint = nil; $0.cornerRadius = 18; $0.hover = .glow },
-        LookPreset(id: "candy", title: L("Candy", "Bonbon")) { $0.material = .solid; $0.tint = .rose; $0.customTint = nil; $0.cornerRadius = 32; $0.hover = .zoom },
-        LookPreset(id: "minimal", title: L("Minimal", "Minimal")) { $0.material = .clear; $0.tint = nil; $0.customTint = nil; $0.cornerRadius = 14; $0.hover = .none; $0.showsHeader = false },
+        LookPreset(id: "classic", title: L("Classic", "Classique")) { $0 = PanelStyle() },
+        LookPreset(id: "glass", title: L("Glass", "Verre")) { $0.labels = .glass; $0.showsLabels = true; $0.tint = nil; $0.customTint = nil; $0.hover = .glow; $0.opening = .smooth },
+        LookPreset(id: "ember", title: L("Ember", "Braise")) { $0.labels = .color; $0.showsLabels = true; $0.tint = .ember; $0.customTint = nil; $0.hover = .glow },
+        LookPreset(id: "ocean", title: L("Ocean", "Océan")) { $0.labels = .color; $0.showsLabels = true; $0.tint = .ocean; $0.customTint = nil },
+        LookPreset(id: "minimal", title: L("Icons only", "Icônes seules")) { $0.showsLabels = false; $0.spacing = 4; $0.curve = 0.3; $0.hover = .zoom },
+        LookPreset(id: "big", title: L("Big", "Grand")) { $0.iconSize = 72; $0.spacing = 12; $0.labelSize = 14 },
+        LookPreset(id: "straight", title: L("Straight", "Droit")) { $0.curve = 0; $0.opening = .quick; $0.cascade = 0.01 },
     ]
 }
 
@@ -423,6 +336,8 @@ struct DockGroup: Codable, Identifiable, Equatable, Sendable {
     var iconGrid = 2
     /// The picture for `.image`, a file in Docked's Images folder.
     var iconImage: String?
+    /// The app for `.singleApp`; the first app when unset.
+    var iconApp: UUID?
     var panel = PanelStyle()
 
     init(id: UUID = UUID(), name: String, apps: [AppEntry] = []) {
@@ -445,25 +360,12 @@ struct DockGroup: Codable, Identifiable, Equatable, Sendable {
         iconFinish = try c.decodeIfPresent(Finish.self, forKey: .iconFinish) ?? .glass
         iconGrid = try c.decodeIfPresent(Int.self, forKey: .iconGrid) ?? 2
         iconImage = try c.decodeIfPresent(String.self, forKey: .iconImage)
+        iconApp = try c.decodeIfPresent(UUID.self, forKey: .iconApp)
         panel = try c.decodeIfPresent(PanelStyle.self, forKey: .panel) ?? PanelStyle()
     }
 
-    /// The view the user chose, whoever draws it. Setting it keeps the two
-    /// renderers in step, so switching between them keeps the view.
-    var view: PanelLayout {
-        get {
-            guard mode == .stack else { return panel.layout }
-            switch presentation {
-            case .grid: return .grid
-            case .list: return .list
-            default: return .fan
-            }
-        }
-        set {
-            panel.layout = newValue
-            presentation = newValue.native
-        }
-    }
+    /// The app whose icon is the tile's in `.singleApp`.
+    var singleApp: AppEntry? { displayedApps.first { $0.id == iconApp } ?? displayedApps.first }
 
     /// Apps in the order they show, from the Dock upwards in a stack, from
     /// the first page in a folder.

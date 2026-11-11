@@ -21,7 +21,7 @@ struct StackPreview: View {
     private var apps: [AppEntry] { group.displayedApps }
     /// How the Dock resolves “Automatique”: a fan while it fits, a grid after.
     private var presentation: StackPresentation {
-        group.presentation == .automatic ? (apps.count > 9 ? .grid : .fan) : group.presentation
+        .fan
     }
 
     var body: some View {
@@ -46,23 +46,22 @@ struct StackPreview: View {
 
     /// The real panel, scaled down when the stage is smaller than it.
     private func folderPanel(fitting space: CGSize) -> some View {
-        let size = PanelMetrics(style: group.panel, count: apps.count).size
-        let scale = min(1, (space.width - 40) / size.width, (space.height - 170) / size.height)
-        return FolderPanelView(group: group, interactive: false, opened: expanded)
+        var shown = group
+        shown.panel = PanelMetrics.fitting(group.panel, count: apps.count, height: max(200, space.height - 150))
+        let size = PanelMetrics(style: shown.panel, count: apps.count).size
+        let scale = min(1, (space.width - 20) / size.width)
+        return FolderPanelView(group: shown, interactive: false, opened: expanded)
             .frame(width: size.width, height: size.height, alignment: .bottom)
             .scaleEffect(max(0.3, scale), anchor: .bottom)
             .frame(width: size.width * max(0.3, scale), height: size.height * max(0.3, scale))
-            .padding(.bottom, group.panel.layout == .fan ? 18 : 14)
+            .padding(.bottom, 18)
             .frame(maxWidth: .infinity)
     }
 
     // MARK: Open stack
 
     @ViewBuilder private var openContent: some View {
-        switch presentation {
-        case .grid, .list: panel
-        default: fan
-        }
+        fan
     }
 
     /// The fan rises from the tile, bending a little to the right and
@@ -110,51 +109,6 @@ struct StackPreview: View {
     }
 
     /// Grid and list both open as a rounded panel above the tile.
-    private var panel: some View {
-        let shown = Array(apps.prefix(presentation == .grid ? 15 : 8))
-        return VStack(alignment: .leading, spacing: 12) {
-            if presentation == .grid {
-                let side = group.stackGridIconSize > 0 ? CGFloat(group.stackGridIconSize) * 0.75 : 46
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(side + 30), spacing: 6), count: min(5, max(1, shown.count))), spacing: 12) {
-                    ForEach(shown) { app in
-                        VStack(spacing: 5) {
-                            Image(nsImage: app.icon).resizable().frame(width: side, height: side)
-                            Text(group.label(for: app)).font(.system(size: 10.5)).foregroundStyle(.white).lineLimit(1)
-                        }
-                    }
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 1) {
-                    ForEach(shown) { app in
-                        HStack(spacing: 9) {
-                            Image(nsImage: app.icon).resizable().frame(width: 20, height: 20)
-                            Text(group.label(for: app)).font(.system(size: 12.5)).foregroundStyle(.white)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 8).padding(.vertical, 4)
-                    }
-                }
-                .frame(width: 240)
-            }
-            Divider().overlay(Color.white.opacity(0.12))
-            HStack {
-                Text(group.folderName).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white)
-                Spacer()
-                Text(L("Open in Finder", "Ouvrir dans le Finder")).font(.system(size: 11)).foregroundStyle(.white.opacity(0.65))
-            }
-        }
-        .padding(14)
-        .fixedSize()
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.ultraThinMaterial))
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.black.opacity(0.35)))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.16), lineWidth: 0.5))
-        .environment(\.colorScheme, .dark)
-        .padding(.bottom, 12)
-        .scaleEffect(expanded ? 1 : 0.4, anchor: .bottom)
-        .opacity(expanded ? 1 : 0)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.82), value: expanded)
-    }
-
     // MARK: Dock
 
     private var dock: some View {
@@ -298,6 +252,8 @@ struct DockTileIcon: View {
 
     var body: some View {
         switch group.effectiveTileStyle {
+        case .singleApp:
+            ComposedIcon(group: group, image: nil, size: size * 1.04).frame(width: size, height: size)
         case .appGrid, .image:
             // Composed icons carry Apple's margin: scale up to match the
             // other tiles' visible size.

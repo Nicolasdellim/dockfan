@@ -24,6 +24,18 @@ struct ComposedIcon: View {
     private var radius: CGFloat { body_ * 0.225 }
 
     var body: some View {
+        switch style {
+        case .singleApp, .folder:
+            // An app's or the folder's own icon already has Apple's margin.
+            Image(nsImage: style == .folder ? NSWorkspace.shared.icon(for: .folder) : (apps.first?.icon ?? NSWorkspace.shared.icon(for: .application)))
+                .resizable().interpolation(.high)
+                .frame(width: size, height: size)
+        default:
+            tile
+        }
+    }
+
+    private var tile: some View {
         ZStack {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .fill(.black.opacity(0.28))
@@ -96,8 +108,9 @@ struct ComposedIcon: View {
 
 extension ComposedIcon {
     init(group: DockGroup, image: NSImage?, size: CGFloat = 128) {
-        self.init(style: group.effectiveTileStyle, finish: group.iconFinish, grid: group.iconGrid,
-                  apps: group.displayedApps, image: image, size: size)
+        let style = group.effectiveTileStyle
+        self.init(style: style, finish: group.iconFinish, grid: group.iconGrid,
+                  apps: style == .singleApp ? (group.singleApp.map { [$0] } ?? []) : group.displayedApps, image: image, size: size)
     }
 
     /// The icon at 1024 points, as PNG data, for the folder or launcher.

@@ -64,7 +64,7 @@ private struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                DockedMark(size: 32)
+                DockedLogo(size: 34)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Docked").font(.system(size: 15, weight: .semibold)).foregroundStyle(Brand.text)
                     Text(L("Your apps, stacked", "Vos apps, en piles")).font(.system(size: 11)).foregroundStyle(Brand.tertiary)
@@ -264,7 +264,7 @@ private struct Welcome: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 20)
-            DockedMark(size: 112)
+            DockedLogo(size: 116)
                 .shadow(color: Brand.ember.opacity(0.25), radius: 40, y: 10)
                 .padding(.bottom, 26)
             Text(L("Welcome to Docked", "Bienvenue dans Docked")).font(.system(size: 26, weight: .semibold)).foregroundStyle(Brand.text)
@@ -371,8 +371,7 @@ private struct GroupEditor: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(L("Preview", "Aperçu")).font(.system(size: 10, weight: .semibold)).tracking(0.8).foregroundStyle(.white.opacity(0.45))
                     Text(group.folderName).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white)
-                    Label("\(group.view.title) · \(group.mode == .stack ? L("macOS stack", "pile macOS") : L("drawn by Docked", "dessiné par Docked"))",
-                          systemImage: group.view.symbol)
+                    Label(group.mode.title, systemImage: "rectangle.stack")
                         .font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.ember)
                 }
                 Spacer()
@@ -563,7 +562,7 @@ private struct Inspector: View {
 
     private var summary: String {
         let count = group.apps.count == 1 ? "1 app" : "\(group.apps.count) apps"
-        return "\(group.view.title) · \(group.mode.title) · \(count)"
+        return "\(group.mode.title) · \(count)"
     }
 
     // MARK: Apps
@@ -632,163 +631,95 @@ private struct Inspector: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Display
+    // MARK: Fan
+
+    private var native: Bool { group.mode == .stack }
 
     private var displayTab: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Step(number: 1, title: L("Choose a view", "Choisissez une vue")) {
-                HStack(spacing: 8) {
-                    ForEach(PanelLayout.allCases) { view in
-                        ViewCard(view: view, selected: group.view == view) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { group.view = view }
+        VStack(alignment: .leading, spacing: 12) {
+            if native {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "info.circle.fill").font(.system(size: 13)).foregroundStyle(Brand.ember)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(L("This group uses macOS’s own fan, which can’t be customised. Switch to Docked’s fan to use the settings below.",
+                               "Ce groupe utilise l’éventail de macOS, qui ne se personnalise pas. Passez à l’éventail Docked pour utiliser les réglages ci-dessous."))
+                            .font(.system(size: 11)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
+                        Button { withAnimation { group.mode = .folder } } label: { Label(L("Use Docked’s fan", "Utiliser l’éventail Docked"), systemImage: "wand.and.stars") }
+                            .buttonStyle(QuietButtonStyle(compact: true))
+                    }
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Brand.ember.opacity(0.1)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Brand.ember.opacity(0.35)))
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                PresetStrip(style: $group.panel) { store.shuffleOpening(of: group) }
+
+                Card(title: L("Icons", "Icônes"), symbol: "app.dashed") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        SliderRow(title: L("Size", "Taille"), value: $group.panel.iconSize, range: 28...96, step: 2,
+                                  display: "\(Int(group.panel.iconSize)) pt")
+                        SliderRow(title: L("Distance between icons", "Distance entre les icônes"), value: $group.panel.spacing, range: 0...32, step: 1,
+                                  display: "\(Int(group.panel.spacing)) pt")
+                        SliderRow(title: L("Curve", "Courbure"), value: $group.panel.curve, range: 0...1.6, step: 0.05,
+                                  display: group.panel.curve < 0.05 ? L("Straight", "Droit") : "\(Int((group.panel.curve / 1.6 * 100).rounded())) %")
+                        labeled(L("Bends", "Penche")) {
+                            PillPicker(options: [(true, L("To the right", "Vers la droite")), (false, L("To the left", "Vers la gauche"))], selection: $group.panel.bendsRight)
+                        }
+                        .disabled(group.panel.curve < 0.05).opacity(group.panel.curve < 0.05 ? 0.4 : 1)
+                        Toggle(isOn: $group.panel.shadows) { toggleLabel(L("Shadows", "Ombres"), L("A soft shadow under each icon", "Une ombre douce sous chaque icône")) }
+                            .toggleStyle(.switch).controlSize(.small)
+                    }
+                }
+
+                Card(title: L("Names", "Noms"), symbol: "textformat") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle(isOn: $group.panel.showsLabels) {
+                            toggleLabel(L("Show the names", "Afficher les noms"), L("Off: just the icons", "Désactivé : seulement les icônes"))
+                        }
+                        .toggleStyle(.switch).controlSize(.small)
+                        if group.panel.showsLabels {
+                            labeled(L("Style", "Style")) { PillPicker(options: FanLabels.allCases.map { ($0, $0.title) }, selection: $group.panel.labels) }
+                            labeled(L("Side", "Côté")) {
+                                PillPicker(options: [(true, L("Left", "À gauche")), (false, L("Right", "À droite"))], selection: $group.panel.labelsLeft)
+                            }
+                            SliderRow(title: L("Text size", "Taille du texte"), value: $group.panel.labelSize, range: 10...18, step: 0.5,
+                                      display: "\(String(format: "%g", group.panel.labelSize)) pt")
+                        }
+                        if group.panel.showsLabels && group.panel.labels != .dark || group.panel.hover == .glow {
+                            Divider().overlay(Brand.hairline)
+                            ColorRow(style: $group.panel)
                         }
                     }
                 }
+
+                Card(title: L("Motion", "Mouvement"), symbol: "sparkles") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        labeled(L("Opening", "Ouverture")) { PillPicker(options: OpenAnimation.allCases.map { ($0, $0.title) }, selection: $group.panel.opening) }
+                        SliderRow(title: L("One after the other", "Une icône après l’autre"), value: $group.panel.cascade, range: 0...0.08, step: 0.004,
+                                  display: group.panel.cascade < 0.002 ? L("Together", "Ensemble") : "\(Int((group.panel.cascade * 1000).rounded())) ms")
+                        labeled(L("On hover", "Au survol")) { PillPicker(options: HoverEffect.allCases.map { ($0, $0.title) }, selection: $group.panel.hover) }
+                    }
+                }
             }
-            Step(number: 2, title: L("Who draws it", "Qui l’affiche")) {
+            .disabled(native)
+            .opacity(native ? 0.4 : 1)
+
+            Card(title: L("Fan engine", "Moteur de l’éventail"), symbol: "gearshape") {
                 VStack(spacing: 6) {
                     ForEach([GroupMode.folder, .stack]) { mode in
                         RendererRow(mode: mode, selected: group.mode == mode) {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { group.mode = mode }
                         }
                     }
-                }
-            }
-            Step(number: 3, title: L("Customise", "Personnalisez")) {
-                if group.mode == .stack { nativeOptions } else { dockedOptions }
-            }
-        }
-    }
-
-    // macOS's own stack: what it allows.
-
-    @ViewBuilder private var nativeOptions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if group.view == .grid {
-                Card {
-                    SliderRow(title: L("Icon size", "Taille des icônes"),
-                              value: Binding(get: { group.stackGridIconSize }, set: { group.stackGridIconSize = $0 < 24 ? 0 : $0.rounded() }),
-                              range: 0...128, step: 4,
-                              display: group.stackGridIconSize == 0 ? L("Auto", "Auto") : "\(Int(group.stackGridIconSize)) pt")
-                }
-            }
-            Card {
-                Toggle(isOn: $group.showsExtension) {
-                    toggleLabel(L("Show the .app extension", "Afficher l’extension .app"), L("“Photoshop.app” instead of “Photoshop”", "« Photoshop.app » au lieu de « Photoshop »"))
-                }
-                .toggleStyle(.switch).controlSize(.small)
-            }
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(Brand.secondary)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(L("macOS decides the size, colours and animation of its stacks. For icon size, grids of 2 × 2 to 6 × 4, colours, glass and names, let Docked draw it.",
-                           "macOS impose la taille, les couleurs et l’animation de ses piles. Pour régler la taille des icônes, une grille de 2 × 2 à 6 × 4, les couleurs, le verre et les noms, laissez Docked l’afficher."))
-                        .font(.system(size: 11)).foregroundStyle(Brand.secondary).fixedSize(horizontal: false, vertical: true)
-                    Button { withAnimation { group.mode = .folder } } label: { Label(L("Customise with Docked", "Personnaliser avec Docked"), systemImage: "wand.and.stars") }
-                        .buttonStyle(QuietButtonStyle(compact: true))
-                }
-            }
-            .padding(12)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.03)))
-        }
-    }
-
-    // Docked: everything.
-
-    private var dockedOptions: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            PresetStrip(style: $group.panel) { store.shuffleOpening(of: group) }
-
-            switch group.view {
-            case .fan: fanOptions
-            case .grid: gridOptions
-            case .list: listOptions
-            }
-
-            Card(title: L("Look", "Apparence"), symbol: "drop") {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(group.view == .fan ? L("Used by the names and the “more” grid.", "Pour les noms et la grille « de plus ».") : L("The panel’s material.", "La matière du panneau."))
-                        .font(.system(size: 10.5)).foregroundStyle(Brand.tertiary)
-                    MaterialPicker(selection: $group.panel.material, style: group.panel)
-                    Divider().overlay(Brand.hairline)
-                    ColorRow(style: $group.panel)
-                    if group.panel.tintColor != nil && group.panel.material != .solid {
-                        SliderRow(title: L("Colour strength", "Intensité de la couleur"), value: $group.panel.tintStrength, range: 0.1...1, step: 0.05,
-                                  display: "\(Int(group.panel.tintStrength * 100)) %")
-                    }
-                    if group.view != .fan {
-                        Divider().overlay(Brand.hairline)
-                        SliderRow(title: L("Corners", "Coins arrondis"), value: $group.panel.cornerRadius, range: 4...40, step: 2,
-                                  display: "\(Int(group.panel.cornerRadius)) pt")
+                    if native {
+                        Toggle(isOn: $group.showsExtension) {
+                            toggleLabel(L("Show the .app extension", "Afficher l’extension .app"), L("“Photoshop.app” instead of “Photoshop”", "« Photoshop.app » au lieu de « Photoshop »"))
+                        }
+                        .toggleStyle(.switch).controlSize(.small).padding(.top, 6)
                     }
                 }
-            }
-
-            Card(title: L("Motion", "Mouvement"), symbol: "sparkles") {
-                VStack(alignment: .leading, spacing: 12) {
-                    labeled(L("Opening", "Ouverture")) { PillPicker(options: OpenAnimation.allCases.map { ($0, $0.title) }, selection: $group.panel.opening) }
-                    labeled(L("On hover", "Au survol")) { PillPicker(options: HoverEffect.allCases.map { ($0, $0.title) }, selection: $group.panel.hover) }
-                }
-            }
-        }
-    }
-
-    private var fanOptions: some View {
-        Card(title: L("Fan", "Éventail"), symbol: "rectangle.stack") {
-            VStack(alignment: .leading, spacing: 12) {
-                SliderRow(title: L("Icon size", "Taille des icônes"), value: $group.panel.fanIconSize, range: 32...96, step: 2,
-                          display: "\(Int(group.panel.fanIconSize)) pt")
-                CountRow(title: L("Icons in the fan", "Icônes dans l’éventail"), value: $group.panel.fanCount, range: 3...15)
-                SliderRow(title: L("Spacing", "Espacement"), value: $group.panel.fanSpacing, range: 0...28, step: 1,
-                          display: "\(Int(group.panel.fanSpacing)) pt")
-                SliderRow(title: L("Curve", "Courbure"), value: $group.panel.fanCurve, range: 0...1.6, step: 0.05,
-                          display: group.panel.fanCurve < 0.05 ? L("Straight", "Droit") : "\(Int(group.panel.fanCurve / 1.6 * 100)) %")
-                labeled(L("Names", "Noms")) { PillPicker(options: FanLabels.allCases.map { ($0, $0.title) }, selection: $group.panel.fanLabels) }
-                if group.apps.count > group.panel.fanCount {
-                    note(L("\(group.apps.count - group.panel.fanCount + 1) apps don’t fit: the top of the fan opens them all as a grid.",
-                           "\(group.apps.count - group.panel.fanCount + 1) apps ne tiennent pas : le haut de l’éventail les ouvre toutes en grille."))
-                }
-            }
-        }
-    }
-
-    private var gridOptions: some View {
-        Card(title: L("Grid", "Grille"), symbol: "square.grid.3x3") {
-            VStack(alignment: .leading, spacing: 12) {
-                labeled(L("Size of the grid", "Format de la grille")) {
-                    GridPresets(columns: $group.panel.columns, rows: $group.panel.rows)
-                }
-                HStack(spacing: 12) {
-                    CountRow(title: L("Columns", "Colonnes"), value: $group.panel.columns, range: 1...8)
-                    CountRow(title: L("Rows", "Lignes"), value: $group.panel.rows, range: 1...6)
-                }
-                let metrics = PanelMetrics(style: group.panel, count: group.apps.count)
-                note(metrics.pages > 1
-                     ? L("\(metrics.perPage) apps per page · \(metrics.pages) pages. Swipe, scroll or use the arrow keys.",
-                         "\(metrics.perPage) apps par page · \(metrics.pages) pages. Balayez, défilez ou utilisez les flèches.")
-                     : L("\(metrics.perPage) apps per page.", "\(metrics.perPage) apps par page."))
-                Divider().overlay(Brand.hairline)
-                SliderRow(title: L("Icon size", "Taille des icônes"), value: $group.panel.iconSize, range: 32...112, step: 4,
-                          display: "\(Int(group.panel.iconSize)) pt")
-                labeled(L("Cells", "Cases")) {
-                    PillPicker(options: [(false, L("Icons only", "Icônes seules")), (true, L("Tiles", "Tuiles"))], selection: $group.panel.tiles)
-                }
-                Divider().overlay(Brand.hairline)
-                Toggle(isOn: $group.panel.showsTitles) { toggleLabel(L("App names", "Noms des apps"), L("Off: just the icons", "Désactivé : seulement les logos")) }
-                Toggle(isOn: $group.panel.showsHeader) { toggleLabel(L("Group title", "Titre du groupe"), L("The name at the top of the panel", "Le nom en haut du panneau")) }
-            }
-            .toggleStyle(.switch).controlSize(.small)
-        }
-    }
-
-    private var listOptions: some View {
-        Card(title: L("List", "Liste"), symbol: "list.bullet") {
-            VStack(alignment: .leading, spacing: 12) {
-                CountRow(title: L("Rows per page", "Lignes par page"), value: $group.panel.listRows, range: 3...15)
-                SliderRow(title: L("Icon size", "Taille des icônes"), value: $group.panel.listIconSize, range: 18...48, step: 2,
-                          display: "\(Int(group.panel.listIconSize)) pt")
-                Toggle(isOn: $group.panel.showsHeader) { toggleLabel(L("Group title", "Titre du groupe"), L("The name at the top of the panel", "Le nom en haut du panneau")) }
-                    .toggleStyle(.switch).controlSize(.small)
             }
         }
     }
@@ -800,7 +731,7 @@ private struct Inspector: View {
             iconHero
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(L("Style", "Style"))
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: TileStyle.available(for: group.mode).count), spacing: 8) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
                     ForEach(TileStyle.available(for: group.mode)) { style in
                         StyleTile(style: style, group: group, image: store.image(for: group),
                                   selected: group.effectiveTileStyle == style) {
@@ -819,6 +750,22 @@ private struct Inspector: View {
                     SectionLabel(L("Apps on the icon", "Apps sur l’icône"))
                     PillPicker(options: [(2, "2 × 2"), (3, "3 × 3")], selection: $group.iconGrid)
                     note(L("The first apps of the group, in its order.", "Les premières apps du groupe, dans son ordre."))
+                }
+            case .singleApp:
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionLabel(L("Which app", "Quelle app"))
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(44), spacing: 8), count: 6), alignment: .leading, spacing: 8) {
+                        ForEach(group.displayedApps) { app in
+                            let chosen = group.singleApp?.id == app.id
+                            Button { group.iconApp = app.id } label: {
+                                Image(nsImage: app.icon).resizable().interpolation(.high).frame(width: 36, height: 36)
+                                    .padding(4)
+                                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(chosen ? Brand.ember.opacity(0.18) : Color.white.opacity(0.04)))
+                                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(chosen ? Brand.ember : Brand.hairline, lineWidth: chosen ? 1.5 : 1))
+                            }
+                            .buttonStyle(.plain).help(app.name)
+                        }
+                    }
                 }
             case .image:
                 VStack(alignment: .leading, spacing: 10) {
@@ -944,23 +891,6 @@ private struct Inspector: View {
 
 // MARK: - Inspector components
 
-/// A numbered step of the Display tab.
-private struct Step<Content: View>: View {
-    let number: Int
-    let title: String
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text("\(number)").font(.system(size: 10, weight: .bold)).foregroundStyle(Brand.ink)
-                    .frame(width: 18, height: 18).background(Circle().fill(Brand.ember))
-                Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(0.8).foregroundStyle(Brand.secondary)
-            }
-            content
-        }
-    }
-}
 
 /// A rounded card holding a group of settings, with an optional title.
 private struct Card<Content: View>: View {
@@ -984,79 +914,7 @@ private struct Card<Content: View>: View {
     }
 }
 
-/// One of the three views, drawn small.
-private struct ViewCard: View {
-    let view: PanelLayout
-    let selected: Bool
-    let action: () -> Void
 
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                ViewGlyph(view: view, selected: selected).frame(height: 44)
-                VStack(spacing: 2) {
-                    Text(view.title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Brand.text)
-                    Text(view.subtitle).font(.system(size: 9.5)).foregroundStyle(Brand.tertiary).multilineTextAlignment(.center)
-                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.vertical, 10).padding(.horizontal, 6)
-            .frame(maxWidth: .infinity, minHeight: 112)
-            .glassCard(selected: selected)
-            .overlay(alignment: .topTrailing) {
-                if selected {
-                    Image(systemName: "checkmark.circle.fill").font(.system(size: 13)).foregroundStyle(Brand.ember).padding(6)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct ViewGlyph: View {
-    let view: PanelLayout
-    let selected: Bool
-
-    var body: some View {
-        let color = selected ? Brand.ember : Brand.secondary
-        switch view {
-        case .fan:
-            ZStack(alignment: .bottom) {
-                ForEach(0..<4, id: \.self) { i in
-                    HStack(spacing: 3) {
-                        Capsule().fill(color.opacity(0.45)).frame(width: 14, height: 4)
-                        RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(color).frame(width: 9, height: 9)
-                    }
-                    .offset(x: CGFloat(i * i) * 0.8, y: -CGFloat(i) * 11)
-                    .rotationEffect(.degrees(Double(i) * 2))
-                }
-            }
-            .frame(width: 44, height: 44, alignment: .bottom)
-        case .grid:
-            VStack(spacing: 3) {
-                ForEach(0..<3, id: \.self) { _ in
-                    HStack(spacing: 3) {
-                        ForEach(0..<3, id: \.self) { _ in RoundedRectangle(cornerRadius: 2, style: .continuous).fill(color).frame(width: 9, height: 9) }
-                    }
-                }
-            }
-            .padding(5)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(color.opacity(0.5)))
-        case .list:
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(0..<4, id: \.self) { _ in
-                    HStack(spacing: 4) {
-                        RoundedRectangle(cornerRadius: 2, style: .continuous).fill(color).frame(width: 7, height: 7)
-                        Capsule().fill(color.opacity(0.55)).frame(width: 22, height: 3)
-                    }
-                }
-            }
-            .padding(5)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(color.opacity(0.5)))
-        }
-    }
-}
 
 /// Docked or macOS, as two radio rows.
 private struct RendererRow: View {
@@ -1113,7 +971,7 @@ private struct PresetStrip: View {
                         let sample = sampled(preset)
                         Button { withAnimation(.easeOut(duration: 0.2)) { preset.apply(&style) } } label: {
                             HStack(spacing: 6) {
-                                Circle().fill(Color(nsColor: sample.tintColor ?? NSColor(white: 0.85, alpha: 1)).opacity(sample.material == .solid ? 1 : 0.75))
+                                Circle().fill(Self.dot(sample))
                                     .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 0.6))
                                     .frame(width: 12, height: 12)
                                 Text(preset.title).font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.text)
@@ -1135,45 +993,15 @@ private struct PresetStrip: View {
         return copy
     }
 
-    private func matches(_ sample: PanelStyle) -> Bool {
-        sample.material == style.material && sample.tint == style.tint && sample.customTint == style.customTint
-            && sample.cornerRadius == style.cornerRadius && sample.hover == style.hover
+    private func matches(_ sample: PanelStyle) -> Bool { sample == style }
+
+    private static func dot(_ sample: PanelStyle) -> Color {
+        if !sample.showsLabels { return Color.white.opacity(0.25) }
+        if sample.labels == .dark { return Color.black }
+        return Color(nsColor: sample.tintColor ?? NSColor(white: 0.85, alpha: 1))
     }
 }
 
-private struct MaterialPicker: View {
-    @Binding var selection: GlassMaterial
-    let style: PanelStyle
-
-    var body: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-            ForEach(GlassMaterial.allCases) { material in
-                Button { selection = material } label: {
-                    HStack(spacing: 8) {
-                        swatch(material).frame(width: 24, height: 24)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(material.title).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(Brand.text).lineLimit(1)
-                            Text(material.subtitle).font(.system(size: 9.5)).foregroundStyle(Brand.tertiary).lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(selection == material ? Brand.ember.opacity(0.14) : Color.black.opacity(0.2)))
-                    .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(selection == material ? Brand.ember.opacity(0.55) : Brand.hairline))
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func swatch(_ material: GlassMaterial) -> some View {
-        var sample = style
-        sample.material = material
-        return Color.clear.modifier(PanelGlass(style: sample, shape: AnyShape(RoundedRectangle(cornerRadius: 6, style: .continuous)), native: false))
-    }
-}
 
 /// Colour swatches, “none”, and a colour of one's own.
 private struct ColorRow: View {
@@ -1219,61 +1047,7 @@ private struct ColorRow: View {
     }
 }
 
-/// Common grid sizes in one click.
-private struct GridPresets: View {
-    @Binding var columns: Int
-    @Binding var rows: Int
-    private static let sizes: [GridSize] = [.init(2, 2), .init(3, 2), .init(3, 3), .init(4, 2), .init(4, 3), .init(4, 4), .init(5, 3), .init(6, 4)]
 
-    struct GridSize: Hashable {
-        let columns: Int, rows: Int
-        init(_ columns: Int, _ rows: Int) { self.columns = columns; self.rows = rows }
-    }
-
-    var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
-            ForEach(Self.sizes, id: \.self) { size in chip(size) }
-        }
-    }
-
-    private func chip(_ size: GridSize) -> some View {
-        let selected = columns == size.columns && rows == size.rows
-        let color: Color = selected ? Brand.ember : Brand.secondary
-        let fill: Color = selected ? Brand.ember.opacity(0.14) : Color.black.opacity(0.2)
-        let stroke: Color = selected ? Brand.ember.opacity(0.55) : Brand.hairline
-        return Button {
-            withAnimation(.easeOut(duration: 0.15)) { columns = size.columns; rows = size.rows }
-        } label: {
-            VStack(spacing: 4) {
-                MiniGrid(columns: size.columns, rows: size.rows, color: color)
-                Text("\(size.columns) × \(size.rows)").font(.system(size: 10.5, weight: .semibold).monospacedDigit()).foregroundStyle(Brand.text)
-            }
-            .frame(maxWidth: .infinity).frame(height: 50)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(fill))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(stroke))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct MiniGrid: View {
-    let columns: Int
-    let rows: Int
-    let color: Color
-
-    var body: some View {
-        let side: CGFloat = columns > 4 ? 3 : 4
-        VStack(spacing: 1.5) {
-            ForEach(0..<rows, id: \.self) { _ in
-                HStack(spacing: 1.5) {
-                    ForEach(0..<columns, id: \.self) { _ in RoundedRectangle(cornerRadius: 1).fill(color).frame(width: side, height: side) }
-                }
-            }
-        }
-        .frame(height: 20)
-    }
-}
 
 /// One icon style, drawn with the group's own apps.
 private struct StyleTile: View {

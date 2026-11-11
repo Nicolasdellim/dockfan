@@ -92,7 +92,6 @@ public final class DockedDroplet: NSObject, ObservableObject, Droplet {
     func togglePanel(_ id: UUID) {
         guard var group = store?.groups.first(where: { $0.id == id }) else { return }
         // A macOS stack opened by its shortcut shows the same view, drawn by Docked.
-        if group.mode == .stack { group.panel.layout = group.view }
         panel.toggle(group)
     }
 
@@ -156,7 +155,7 @@ private struct DockedSettings: View {
             DropletSettingsSection {
                 VStack(alignment: .leading, spacing: 2) {
                     settingsSectionHeader(LocalizedStringKey(L("Groups", "Groupes")))
-                    Text(L("A stack opens as the Dock’s fan; a folder opens a glass panel.", "Une pile s’ouvre en éventail ; un dossier ouvre un panneau en verre."))
+                    Text(L("Each group is a tile that opens as a fan.", "Chaque groupe est une tuile qui s’ouvre en éventail."))
                         .font(.body).foregroundStyle(.secondary)
                 }
             } content: {

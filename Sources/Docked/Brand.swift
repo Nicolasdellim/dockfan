@@ -216,3 +216,26 @@ struct SectionLabel: View {
             .foregroundStyle(Brand.tertiary)
     }
 }
+
+/// The droplet's logo, the picture itself, with the drawn mark as a fallback.
+struct DockedLogo: View {
+    var size: CGFloat = 64
+
+    private static let image: NSImage? = {
+        let bundle = Bundle(for: DockedDroplet.self)
+        let url = bundle.url(forResource: "Logo", withExtension: "png", subdirectory: "Assets")
+            ?? bundle.url(forResource: "Logo", withExtension: "png")
+        return url.flatMap(NSImage.init(contentsOf:))
+    }()
+
+    var body: some View {
+        if let image = Self.image {
+            // The picture has black corners: clip them to the tile's curve.
+            Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
+        } else {
+            DockedMark(size: size)
+        }
+    }
+}
