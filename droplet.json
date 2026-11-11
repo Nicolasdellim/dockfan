@@ -2,8 +2,8 @@
   "id": "dockfan",
   "name": "Dockfan",
   "version": "1.0.0",
-  "summary": "Group apps behind one Dock tile that opens as a fan",
-  "description": "Dockfan puts several apps behind a single tile of the Dock. Click it and they rise in a fan, one after the other, each with its name; click an app to open it.\n\nMake the fan yours: icon size, distance between icons, curve, names or icons only, dark, coloured or glass name pills, and the opening animation. The tile itself can show several apps, one app, your own photo or a folder. You can also keep macOS's own stack beside the Trash. Suggestions build a group from the suites already on your Mac, such as Adobe or Microsoft Office.",
+  "summary": "Group apps into one Dock stack that opens as macOS's fan",
+  "description": "Dockfan puts several apps in a single stack of the Dock. Click it and they rise in the Dock's own fan, with macOS's animation; it works even when Droppy is closed, and keeps every option of a Dock stack.\n\nPick the apps and their order, and how the tile looks: several apps on a coloured background, one app's icon, your own photo, a folder or the apps piled up. Each group gets a keyboard shortcut that opens its stack. Suggestions build a group from the suites already on your Mac, such as Adobe or Microsoft Office.",
   "category": "Productivity",
   "kit": {
     "abi": 1,
@@ -11,7 +11,8 @@
   },
   "minAppVersion": "15.3.0",
   "capabilities": [
-    "global-shortcuts"
+    "global-shortcuts",
+    "accessibility"
   ],
   "surfaces": [
     "settings-pane"

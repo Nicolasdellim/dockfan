@@ -30,9 +30,7 @@ struct StackPreview: View {
             GeometryReader { proxy in
                 VStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    if !apps.isEmpty {
-                        if group.mode == .folder { folderPanel(fitting: proxy.size) } else { openContent.frame(maxWidth: .infinity) }
-                    }
+                    if !apps.isEmpty { openContent.frame(maxWidth: .infinity) }
                     dock.padding(.bottom, 24)
                 }
                 .frame(width: proxy.size.width, height: proxy.size.height)
@@ -40,22 +38,6 @@ struct StackPreview: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: Brand.radius, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: Brand.radius, style: .continuous).strokeBorder(Brand.hairline))
-    }
-
-    // MARK: Folder
-
-    /// The real panel, scaled down when the stage is smaller than it.
-    private func folderPanel(fitting space: CGSize) -> some View {
-        var shown = group
-        shown.panel = PanelMetrics.fitting(group.panel, count: apps.count, height: max(200, space.height - 150))
-        let size = PanelMetrics(style: shown.panel, count: apps.count).size
-        let scale = min(1, (space.width - 20) / size.width)
-        return FolderPanelView(group: shown, interactive: false, opened: expanded)
-            .frame(width: size.width, height: size.height, alignment: .bottom)
-            .scaleEffect(max(0.3, scale), anchor: .bottom)
-            .frame(width: size.width * max(0.3, scale), height: size.height * max(0.3, scale))
-            .padding(.bottom, 18)
-            .frame(maxWidth: .infinity)
     }
 
     // MARK: Open stack
@@ -115,9 +97,8 @@ struct StackPreview: View {
         HStack(spacing: 10) {
             // Symmetric on purpose: the group's tile sits on the centre line
             // the fan rises from.
-            if group.mode == .folder { ghostTile }
             ghostTile
-            if group.mode == .stack { Rectangle().fill(.white.opacity(0.22)).frame(width: 1, height: 38) }
+            Rectangle().fill(.white.opacity(0.22)).frame(width: 1, height: 38)
             Button { expanded.toggle() } label: { tile }
                 .buttonStyle(.plain)
                 .help(expanded ? L("Close", "Refermer") : L("Open", "Déplier"))
@@ -130,12 +111,8 @@ struct StackPreview: View {
                             .transition(.opacity)
                     }
                 }
-            if group.mode == .folder {
-                ghostTile; ghostTile
-            } else {
-                Image(systemName: "trash").font(.system(size: 24, weight: .light)).foregroundStyle(.white.opacity(0.75))
-                    .frame(width: 63, height: 52)
-            }
+            Image(systemName: "trash").font(.system(size: 24, weight: .light)).foregroundStyle(.white.opacity(0.75))
+                .frame(width: 63, height: 52)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.ultraThinMaterial))
@@ -155,7 +132,7 @@ struct StackPreview: View {
     /// Closed: the apps piled up, the first one in front. Open: the chevron.
     @ViewBuilder private var tile: some View {
         ZStack {
-            if expanded && !apps.isEmpty && group.mode == .stack {
+            if expanded && !apps.isEmpty {
                 RoundedRectangle(cornerRadius: 13, style: .continuous).fill(.black.opacity(0.55))
                     .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.12)))
                     .overlay(Image(systemName: "chevron.down").font(.system(size: 19, weight: .semibold)).foregroundStyle(.white))

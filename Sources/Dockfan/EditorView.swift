@@ -631,94 +631,34 @@ private struct Inspector: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: Fan
-
-    private var native: Bool { group.mode == .stack }
+    // MARK: Options
 
     private var displayTab: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if native {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "info.circle.fill").font(.system(size: 13)).foregroundStyle(Brand.ember)
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(L("This group uses macOS’s own fan, which can’t be customised. Switch to the custom fan to use the settings below.",
-                               "Ce groupe utilise l’éventail de macOS, qui ne se personnalise pas. Passez à l’éventail personnalisé pour utiliser les réglages ci-dessous."))
-                            .font(.system(size: 11)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
-                        Button { withAnimation { group.mode = .folder } } label: { Label(L("Use the custom fan", "Utiliser l’éventail personnalisé"), systemImage: "wand.and.stars") }
-                            .buttonStyle(QuietButtonStyle(compact: true))
-                    }
-                }
-                .padding(12)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Brand.ember.opacity(0.1)))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Brand.ember.opacity(0.35)))
+            Card(title: L("macOS’s fan", "L’éventail de macOS"), symbol: "rectangle.stack") {
+                note(L("The Dock draws the fan: its animation, size and names are macOS’s, and it works even when Droppy is closed. Right-click the stack in the Dock for “Open in Finder” and the Dock’s own options.",
+                       "C’est le Dock qui dessine l’éventail : animation, taille et noms sont ceux de macOS, et il marche même quand Droppy est fermé. Clic droit sur la pile dans le Dock pour « Ouvrir dans le Finder » et les options du Dock."))
             }
-
-            VStack(alignment: .leading, spacing: 12) {
-                PresetStrip(style: $group.panel) { store.shuffleOpening(of: group) }
-
-                Card(title: L("Icons", "Icônes"), symbol: "app.dashed") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SliderRow(title: L("Size", "Taille"), value: $group.panel.iconSize, range: 28...96, step: 2,
-                                  display: "\(Int(group.panel.iconSize)) pt")
-                        SliderRow(title: L("Distance between icons", "Distance entre les icônes"), value: $group.panel.spacing, range: 0...32, step: 1,
-                                  display: "\(Int(group.panel.spacing)) pt")
-                        SliderRow(title: L("Curve", "Courbure"), value: $group.panel.curve, range: 0...1.6, step: 0.05,
-                                  display: group.panel.curve < 0.05 ? L("Straight", "Droit") : "\(Int((group.panel.curve / 1.6 * 100).rounded())) %")
-                        labeled(L("Bends", "Penche")) {
-                            PillPicker(options: [(true, L("To the right", "Vers la droite")), (false, L("To the left", "Vers la gauche"))], selection: $group.panel.bendsRight)
-                        }
-                        .disabled(group.panel.curve < 0.05).opacity(group.panel.curve < 0.05 ? 0.4 : 1)
-                        Toggle(isOn: $group.panel.shadows) { toggleLabel(L("Shadows", "Ombres"), L("A soft shadow under each icon", "Une ombre douce sous chaque icône")) }
-                            .toggleStyle(.switch).controlSize(.small)
-                    }
+            Card(title: L("Names", "Noms"), symbol: "textformat") {
+                Toggle(isOn: $group.showsExtension) {
+                    toggleLabel(L("Show the .app extension", "Afficher l’extension .app"), L("“Photoshop.app” instead of “Photoshop”", "« Photoshop.app » au lieu de « Photoshop »"))
                 }
-
-                Card(title: L("Names", "Noms"), symbol: "textformat") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle(isOn: $group.panel.showsLabels) {
-                            toggleLabel(L("Show the names", "Afficher les noms"), L("Off: just the icons", "Désactivé : seulement les icônes"))
-                        }
-                        .toggleStyle(.switch).controlSize(.small)
-                        if group.panel.showsLabels {
-                            labeled(L("Style", "Style")) { PillPicker(options: FanLabels.allCases.map { ($0, $0.title) }, selection: $group.panel.labels) }
-                            labeled(L("Side", "Côté")) {
-                                PillPicker(options: [(true, L("Left", "À gauche")), (false, L("Right", "À droite"))], selection: $group.panel.labelsLeft)
-                            }
-                            SliderRow(title: L("Text size", "Taille du texte"), value: $group.panel.labelSize, range: 10...18, step: 0.5,
-                                      display: "\(String(format: "%g", group.panel.labelSize)) pt")
-                        }
-                        if group.panel.showsLabels && group.panel.labels != .dark || group.panel.hover == .glow {
-                            Divider().overlay(Brand.hairline)
-                            ColorRow(style: $group.panel)
-                        }
-                    }
-                }
-
-                Card(title: L("Motion", "Mouvement"), symbol: "sparkles") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        labeled(L("Opening", "Ouverture")) { PillPicker(options: OpenAnimation.allCases.map { ($0, $0.title) }, selection: $group.panel.opening) }
-                        SliderRow(title: L("One after the other", "Une icône après l’autre"), value: $group.panel.cascade, range: 0...0.08, step: 0.004,
-                                  display: group.panel.cascade < 0.002 ? L("Together", "Ensemble") : "\(Int((group.panel.cascade * 1000).rounded())) ms")
-                        labeled(L("On hover", "Au survol")) { PillPicker(options: HoverEffect.allCases.map { ($0, $0.title) }, selection: $group.panel.hover) }
-                    }
+                .toggleStyle(.switch).controlSize(.small)
+            }
+            Card(title: L("Keyboard shortcut", "Raccourci clavier"), symbol: "command") {
+                VStack(alignment: .leading, spacing: 8) {
+                    note(L("Each group has its own shortcut, “Open “\(group.name)””, set in Droppy’s Settings › Shortcuts. It opens the stack in the Dock exactly as a click does.",
+                           "Chaque groupe a son raccourci, « Ouvrir « \(group.name) » », à régler dans Droppy › Réglages › Raccourcis. Il ouvre la pile du Dock exactement comme un clic."))
+                    note(L("It needs Droppy allowed in System Settings › Privacy & Security › Accessibility.",
+                           "Il faut que Droppy soit autorisé dans Réglages Système › Confidentialité et sécurité › Accessibilité."))
                 }
             }
-            .disabled(native)
-            .opacity(native ? 0.4 : 1)
-
-            Card(title: L("Fan engine", "Moteur de l’éventail"), symbol: "gearshape") {
-                VStack(spacing: 6) {
-                    ForEach([GroupMode.folder, .stack]) { mode in
-                        RendererRow(mode: mode, selected: group.mode == mode) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { group.mode = mode }
-                        }
-                    }
-                    if native {
-                        Toggle(isOn: $group.showsExtension) {
-                            toggleLabel(L("Show the .app extension", "Afficher l’extension .app"), L("“Photoshop.app” instead of “Photoshop”", "« Photoshop.app » au lieu de « Photoshop »"))
-                        }
-                        .toggleStyle(.switch).controlSize(.small).padding(.top, 6)
-                    }
+            Card(title: L("Folder", "Dossier"), symbol: "folder") {
+                VStack(alignment: .leading, spacing: 10) {
+                    note(L("The stack is a folder of aliases kept by Dockfan. Rename the group here, with the pencil at the top, then apply.",
+                           "La pile est un dossier d’alias tenu par Dockfan. Renommez le groupe ici, avec le crayon en haut, puis appliquez."))
+                    Button { store.revealInFinder(group) } label: { Label(L("Show in Finder", "Afficher dans le Finder"), systemImage: "folder") }
+                        .buttonStyle(QuietButtonStyle(compact: true))
                 }
             }
         }
@@ -732,7 +672,7 @@ private struct Inspector: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(L("Style", "Style"))
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                    ForEach(TileStyle.available(for: group.mode)) { style in
+                    ForEach(TileStyle.all) { style in
                         StyleTile(style: style, group: group, image: store.image(for: group),
                                   selected: group.effectiveTileStyle == style) {
                             if style == .image, group.iconImage == nil { choosingImage = true } else { group.tileStyle = style }
@@ -845,8 +785,7 @@ private struct Inspector: View {
                 .disabled(group.apps.isEmpty || state == .working)
                 .keyboardShortcut(.return, modifiers: .command)
                 footnote(group.apps.isEmpty ? L("Add at least one app.", "Ajoutez au moins une app.")
-                         : group.mode == .stack ? L("A stack beside the Trash. The Dock reloads for a second.", "Une pile près de la corbeille. Le Dock se recharge une seconde.")
-                         : L("A tile among your apps. The Dock reloads for a second.", "Une tuile parmi vos apps. Le Dock se recharge une seconde."))
+                         : L("A stack beside the Trash. The Dock reloads for a second.", "Une pile près de la corbeille. Le Dock se recharge une seconde."))
             case .pending:
                 Button { store.applyToDock(group) } label: {
                     HStack(spacing: 8) {
@@ -863,9 +802,7 @@ private struct Inspector: View {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(Brand.success)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(L("In the Dock", "Dans le Dock")).font(.system(size: 13, weight: .semibold)).foregroundStyle(Brand.text)
-                        Text(group.mode == .stack
-                             ? L("Apps you add or move show up there right away.", "Les apps ajoutées ou déplacées y arrivent directement.")
-                             : L("Every display setting applies right away.", "Chaque réglage d’affichage s’applique directement."))
+                        Text(L("Apps you add or move show up there right away.", "Les apps ajoutées ou déplacées y arrivent directement."))
                             .font(.system(size: 11)).foregroundStyle(Brand.tertiary)
                     }
                     Spacer(minLength: 0)
@@ -916,143 +853,9 @@ private struct Card<Content: View>: View {
 
 
 
-/// Dockfan or macOS, as two radio rows.
-private struct RendererRow: View {
-    let mode: GroupMode
-    let selected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 11) {
-                ZStack {
-                    Circle().strokeBorder(selected ? Brand.ember : Brand.tertiary, lineWidth: 1.5).frame(width: 16, height: 16)
-                    if selected { Circle().fill(Brand.ember).frame(width: 8, height: 8) }
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(mode == .folder ? L("Dockfan · made to measure", "Dockfan · sur mesure") : L("macOS · native", "macOS · natif"))
-                            .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Brand.text)
-                        if mode == .folder {
-                            Text(L("Recommended", "Conseillé")).font(.system(size: 9, weight: .bold)).foregroundStyle(Brand.ember)
-                                .padding(.horizontal, 6).frame(height: 16).background(Capsule().fill(Brand.ember.opacity(0.15)))
-                        }
-                    }
-                    Text(mode.subtitle).font(.system(size: 10.5)).foregroundStyle(Brand.tertiary).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard(selected: selected)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-/// The presets as chips, each showing its colour, and a shuffle.
-private struct PresetStrip: View {
-    @Binding var style: PanelStyle
-    let shuffle: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(L("Presets", "Préréglages")).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    Button(action: shuffle) {
-                        Label(L("Shuffle", "Au hasard"), systemImage: "shuffle").font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(Brand.ink).padding(.horizontal, 10).frame(height: 28)
-                            .background(Capsule().fill(Brand.emberGradient))
-                    }
-                    .buttonStyle(.plain)
-                    ForEach(LookPreset.all) { preset in
-                        let sample = sampled(preset)
-                        Button { withAnimation(.easeOut(duration: 0.2)) { preset.apply(&style) } } label: {
-                            HStack(spacing: 6) {
-                                Circle().fill(Self.dot(sample))
-                                    .overlay(Circle().strokeBorder(.white.opacity(0.35), lineWidth: 0.6))
-                                    .frame(width: 12, height: 12)
-                                Text(preset.title).font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.text)
-                            }
-                            .padding(.horizontal, 10).frame(height: 28)
-                            .background(Capsule().fill(Color.white.opacity(matches(sample) ? 0.14 : 0.06)))
-                            .overlay(Capsule().strokeBorder(matches(sample) ? Brand.ember.opacity(0.6) : Brand.hairline))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
-    private func sampled(_ preset: LookPreset) -> PanelStyle {
-        var copy = style
-        preset.apply(&copy)
-        return copy
-    }
-
-    private func matches(_ sample: PanelStyle) -> Bool { sample == style }
-
-    private static func dot(_ sample: PanelStyle) -> Color {
-        if !sample.showsLabels { return Color.white.opacity(0.25) }
-        if sample.labels == .dark { return Color.black }
-        return Color(nsColor: sample.tintColor ?? NSColor(white: 0.85, alpha: 1))
-    }
-}
 
 
-/// Colour swatches, “none”, and a colour of one's own.
-private struct ColorRow: View {
-    @Binding var style: PanelStyle
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(L("Colour", "Couleur")).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text)
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(24), spacing: 7), count: 8), alignment: .leading, spacing: 7) {
-                swatch(nil)
-                ForEach(Finish.allCases) { swatch($0) }
-                Button { ColorWheel.open(current: style.tintColor) { style.customTint = $0.hexString } } label: {
-                    ZStack {
-                        Circle().fill(AngularGradient(colors: [.red, .yellow, .green, .cyan, .blue, .purple, .red], center: .center))
-                        if let custom = style.customTint, let color = NSColor(hex: custom) {
-                            Circle().fill(Color(nsColor: color)).padding(6)
-                                .overlay(Circle().strokeBorder(.white.opacity(0.8), lineWidth: 1).padding(6))
-                        }
-                        Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.75)
-                    }
-                    .frame(width: 24, height: 24)
-                    .overlay(Circle().strokeBorder(style.customTint != nil ? Brand.ember : .clear, lineWidth: 2).padding(-3))
-                    .contentShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .help(L("Any colour", "N’importe quelle couleur"))
-            }
-        }
-    }
-
-
-    private func swatch(_ finish: Finish?) -> some View {
-        let selected = style.customTint == nil && style.tint == finish
-        return Button { withAnimation(.easeOut(duration: 0.15)) { style.customTint = nil; style.tint = finish } } label: {
-            ZStack {
-                if let finish {
-                    Circle().fill(LinearGradient(colors: [Color(nsColor: finish.colors.0), Color(nsColor: finish.colors.1)], startPoint: .top, endPoint: .bottom))
-                } else {
-                    Circle().fill(.white.opacity(0.08))
-                    Image(systemName: "circle.slash").font(.system(size: 11, weight: .medium)).foregroundStyle(Brand.secondary)
-                }
-                Circle().strokeBorder(.white.opacity(0.22), lineWidth: 0.75)
-            }
-            .frame(width: 24, height: 24)
-            .overlay(Circle().strokeBorder(selected ? Brand.ember : .clear, lineWidth: 2).padding(-3))
-            .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help(finish?.title ?? L("No colour", "Sans couleur"))
-    }
-}
 
 
 
@@ -1127,56 +930,7 @@ private struct FinishSwatches: View {
     }
 }
 
-private struct SliderRow: View {
-    let title: String
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    let step: Double
-    let display: String
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text)
-                Spacer()
-                Text(display).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(Brand.text)
-                    .padding(.horizontal, 8).frame(height: 22)
-                    .background(Capsule().fill(Color.white.opacity(0.08)))
-            }
-            Slider(value: $value, in: range, step: step).controlSize(.small).tint(Brand.ember)
-        }
-    }
-}
-
-private struct CountRow: View {
-    let title: String
-    @Binding var value: Int
-    let range: ClosedRange<Int>
-
-    var body: some View {
-        HStack {
-            Text(title).font(.system(size: 12.5, weight: .medium)).foregroundStyle(Brand.text).lineLimit(1)
-            Spacer(minLength: 6)
-            HStack(spacing: 0) {
-                step("minus", -1).disabled(value <= range.lowerBound)
-                Text("\(value)").font(.system(size: 12, weight: .semibold).monospacedDigit()).foregroundStyle(Brand.text)
-                    .frame(width: 24)
-                step("plus", 1).disabled(value >= range.upperBound)
-            }
-            .padding(2)
-            .background(Capsule().fill(Color.black.opacity(0.3)))
-            .overlay(Capsule().strokeBorder(Brand.hairline))
-        }
-    }
-
-    private func step(_ symbol: String, _ delta: Int) -> some View {
-        Button { value = min(range.upperBound, max(range.lowerBound, value + delta)) } label: {
-            Image(systemName: symbol).font(.system(size: 10, weight: .bold)).foregroundStyle(Brand.text)
-                .frame(width: 24, height: 24).contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
 
 private struct AppRow: View {
     let app: AppEntry
@@ -1350,25 +1104,3 @@ private nonisolated func loadApps(from providers: [NSItemProvider], completion: 
     group.notify(queue: .main) { completion(results.ordered) }
 }
 
-/// The system colour wheel, sending each colour picked to one closure.
-@MainActor
-enum ColorWheel {
-    private final class Receiver: NSObject {
-        var onPick: (NSColor) -> Void = { _ in }
-        @objc func changed(_ panel: NSColorPanel) { onPick(panel.color) }
-    }
-    private static let receiver = Receiver()
-
-    static func open(current: NSColor?, onPick: @escaping (NSColor) -> Void) {
-        let panel = NSColorPanel.shared
-        panel.showsAlpha = false
-        receiver.onPick = { _ in }
-        if let current { panel.color = current }
-        receiver.onPick = onPick
-        panel.setTarget(receiver)
-        panel.setAction(#selector(Receiver.changed(_:)))
-        panel.isContinuous = true
-        panel.level = .floating
-        panel.orderFront(nil)
-    }
-}

@@ -3,6 +3,8 @@
 //  Dockfan
 //
 
+import AppKit
+import ApplicationServices
 import Combine
 import DroppyKit
 import SwiftUI
@@ -18,11 +20,10 @@ public final class DockfanPrincipal: NSObject, DropletPrincipal {
 
 /// Dockfan: several apps behind one Dock tile.
 ///
-/// A stack is a folder of Finder aliases that the Dock shows as one of its
+/// A group is a folder of Finder aliases that the Dock shows as one of its
 /// own stacks, so the fan, its animation and the way it closes are the
-/// Dock's. A folder is a small launcher among the apps whose click comes
-/// back here as `droppy://droplet/dockfan/open?group=…` and opens Dockfan's
-/// glass panel. The droplet is also the editor.
+/// Dock's, with or without Droppy. The droplet is the editor, and gives each
+/// group a shortcut that opens its stack.
 @MainActor
 public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
     /// Must equal `DroppyDropletID` in the bundle's Info.plist and `id` in
@@ -34,14 +35,12 @@ public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
     private var editor: EditorWindowController?
     private var storeChanges: AnyCancellable?
     private var documentChanges: AnyCancellable?
-    private let panel = FolderPanelController()
     /// Shortcut ids registered for groups, with the title they were given.
     private var groupShortcuts: [String: String] = [:]
 
     public func activate(host: DropletHost) throws {
         self.host = host
         let store = GroupStore(root: host.environment.containerDirectory)
-        store.callbackBase = host.environment.dropletCallbackURL
         store.load()
         // The settings pane lists the groups, so it follows the store.
         storeChanges = store.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
@@ -54,12 +53,10 @@ public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
                 MainActor.assumeIsolated { self?.syncShortcuts(document.groups) }
             }
         }
-        panel.onEdit = { [weak self] id in self?.edit(id) }
         host.log.info("Dockfan activated")
     }
 
     public func deactivate() {
-        panel.close()
         documentChanges = nil
         groupShortcuts.removeAll()
         editor?.close()
@@ -87,15 +84,24 @@ public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
         openEditor()
     }
 
-    /// Opens a group's panel, whatever its mode: from its folder tile, or
-    /// from its shortcut.
-    func togglePanel(_ id: UUID) {
-        guard var group = store?.groups.first(where: { $0.id == id }) else { return }
-        // A macOS stack opened by its shortcut shows the same view, drawn by Dockfan.
-        panel.toggle(group)
+    /// Opens a group's stack in the Dock, as a click on it would. Without
+    /// the stack in the Dock, or without Accessibility, opens the editor on
+    /// the group instead, which says what is missing.
+    func openStack(_ id: UUID) {
+        guard let store, let group = store.groups.first(where: { $0.id == id }) else { return }
+        guard let label = store.dockLabel(for: group) else { edit(id); return }
+        switch DockPresser.press(label: label) {
+        case .opened: break
+        case .notTrusted:
+            edit(id)
+            store.error = L("To open a stack from its shortcut, allow Droppy in System Settings › Privacy & Security › Accessibility.",
+                            "Pour ouvrir une pile avec son raccourci, autorisez Droppy dans Réglages Système › Confidentialité et sécurité › Accessibilité.")
+        case .notFound:
+            edit(id)
+        }
     }
 
-    /// One shortcut per group, named after it, that opens its panel.
+    /// One shortcut per group, named after it, that opens its stack.
     private func syncShortcuts(_ groups: [DockGroup]) {
         guard let host, host.isGranted(.globalShortcuts) else { return }
         var wanted: [String: (UUID, String)] = [:]
@@ -107,7 +113,7 @@ public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
             groupShortcuts[id] = nil
         }
         for (id, (groupID, title)) in wanted where groupShortcuts[id] != title {
-            host.shortcuts.register(id: id, title: title, defaultShortcut: nil) { [weak self] in self?.togglePanel(groupID) }
+            host.shortcuts.register(id: id, title: title, defaultShortcut: nil) { [weak self] in self?.openStack(groupID) }
             groupShortcuts[id] = title
         }
     }
@@ -121,12 +127,45 @@ public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
 // MARK: - URLs
 
 extension DockfanDroplet: DropletURLHandling {
-    /// `open?group=<id>`: a folder tile was clicked. Anything else, or an
-    /// unknown group, is ignored: every app on the Mac can open these URLs.
+    /// `open?group=<id>`, sent by a tile of the custom-fan version that is
+    /// still in the Dock: opens the editor on its group, to apply it as a
+    /// stack. Anything else is ignored.
     public func handle(_ request: DropletURLRequest) {
         guard request.path == "open", let raw = request.query["group"], raw.count <= 64,
               let id = UUID(uuidString: raw) else { return }
-        togglePanel(id)
+        edit(id)
+    }
+}
+
+/// Presses a stack's tile in the Dock through Accessibility, which opens it
+/// exactly as a click does.
+@MainActor
+enum DockPresser {
+    enum Result { case opened, notTrusted, notFound }
+
+    static func press(label: String) -> Result {
+        guard AXIsProcessTrusted() else { return .notTrusted }
+        guard let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return .notFound }
+        let app = AXUIElementCreateApplication(dock.processIdentifier)
+        for list in children(of: app) {
+            for item in children(of: list) where string(item, kAXTitleAttribute) == label
+                && string(item, kAXSubroleAttribute) == "AXFolderDockItem" {
+                return AXUIElementPerformAction(item, kAXPressAction as CFString) == .success ? .opened : .notFound
+            }
+        }
+        return .notFound
+    }
+
+    private static func children(of element: AXUIElement) -> [AXUIElement] {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &value) == .success else { return [] }
+        return (value as? [AXUIElement]) ?? []
+    }
+
+    private static func string(_ element: AXUIElement, _ attribute: String) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else { return nil }
+        return value as? String
     }
 }
 
@@ -155,7 +194,7 @@ private struct DockfanSettings: View {
             DropletSettingsSection {
                 VStack(alignment: .leading, spacing: 2) {
                     settingsSectionHeader(LocalizedStringKey(L("Groups", "Groupes")))
-                    Text(L("Each group is a tile that opens as a fan.", "Chaque groupe est une tuile qui s’ouvre en éventail."))
+                    Text(L("Each group is a Dock stack that opens as macOS’s fan.", "Chaque groupe est une pile du Dock qui s’ouvre en éventail macOS."))
                         .font(.body).foregroundStyle(.secondary)
                 }
             } content: {
@@ -166,7 +205,7 @@ private struct DockfanSettings: View {
                         }
                     } else {
                         ForEach(droplet.groups) { group in
-                            DropletControlRow(title: group.name, icon: group.mode == .stack ? "square.stack.3d.up" : "square.grid.2x2") {
+                            DropletControlRow(title: group.name, icon: "square.stack.3d.up") {
                                 HStack(spacing: 10) {
                                     DropletValuePill(text: droplet.isInDock(group) ? L("In the Dock", "Dans le Dock")
                                                      : group.apps.count == 1 ? "1 app" : "\(group.apps.count) apps")

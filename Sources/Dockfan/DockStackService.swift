@@ -2,15 +2,10 @@
 //  DockStackService.swift
 //  Dockfan
 //
-//  A group lives in the Dock in one of two ways:
-//
-//  - Stack: a folder of Finder aliases, shown by the Dock as one of its own
-//    stacks (`persistent-others`), so the fan, its animation and the way it
-//    closes are macOS's.
-//  - Folder: a tiny launcher app among the apps (`persistent-apps`). A click
-//    opens `droppy://droplet/dockfan/open?group=…`, and Dockfan shows its glass
-//    panel above the tile. The launcher is an AppleScript applet made with
-//    `osacompile`, which every Mac has, so Dockfan ships no executable.
+//  A group is a folder of Finder aliases that the Dock shows as one of its
+//  own stacks (`persistent-others`): the fan, its animation, the way it
+//  closes, “Open in Finder” and its right-click options are all macOS's, and
+//  work whether Droppy is open or not.
 //
 
 import AppKit
@@ -152,88 +147,13 @@ struct DockStackService: Sendable {
         try? FileManager.default.moveItem(at: from, to: to)
     }
 
-    // MARK: Folder launcher
+    // MARK: Earlier launchers
 
-    /// Builds the launcher app for a folder group: an applet that opens
-    /// `openURL`, named after the group, with Dockfan's icon. Replaces any
-    /// earlier one of this group.
-    func writeLauncher(for group: DockGroup, iconPNG: Data?, openURL: URL) throws {
-        let fm = FileManager.default
-        let app = launcher(for: group)
-        let directory = app.deletingLastPathComponent()
-        try? fm.removeItem(at: directory)
-        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
-
-        let script = "open location \"\(openURL.absoluteString.replacingOccurrences(of: "\"", with: ""))\""
-        try run("/usr/bin/osacompile", ["-o", app.path, "-e", script])
-
-        // An agent app: no menu bar, no running dot, no bounce; the tile stays.
-        let plistURL = app.appendingPathComponent("Contents/Info.plist")
-        guard let data = try? Data(contentsOf: plistURL),
-              var plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
-            throw DockStackError.launcherFailed("Info.plist")
-        }
-        plist["CFBundleIdentifier"] = "app.getdroppy.dockfan.folder.\(group.id.uuidString.lowercased())"
-        plist["CFBundleName"] = group.folderName
-        plist["CFBundleDisplayName"] = group.folderName
-        plist["LSUIElement"] = true
-        plist["CFBundleIconFile"] = "applet"
-        plist.removeValue(forKey: "CFBundleIconName")
-        try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: plistURL)
-        try? fm.removeItem(at: app.appendingPathComponent("Contents/Resources/Assets.car"))
-
-        if let iconPNG { try writeICNS(iconPNG, to: app.appendingPathComponent("Contents/Resources/applet.icns")) }
-        try run("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", app.path])
-        // Tell Launch Services the bundle changed, so the new icon shows.
-        try? run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
-                 ["-f", app.path])
-    }
-
+    /// Groups of an earlier version could be a launcher app among the apps;
+    /// this removes what is left of one.
     func removeLauncher(for group: DockGroup) {
         let directory = launchersDirectory.appendingPathComponent(group.id.uuidString, isDirectory: true)
         try? FileManager.default.removeItem(at: directory)
-    }
-
-    /// An .icns with every size the Dock asks for, from one 1024 PNG.
-    private func writeICNS(_ png: Data, to url: URL) throws {
-        guard let source = CGImageSourceCreateWithData(png as CFData, nil),
-              let full = CGImageSourceCreateImageAtIndex(source, 0, nil),
-              let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.icns.identifier as CFString, 6, nil) else {
-            throw DockStackError.launcherFailed("icns")
-        }
-        for side in [16, 32, 128, 256, 512, 1024] {
-            guard let context = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
-                                          space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { continue }
-            context.interpolationQuality = .high
-            context.draw(full, in: CGRect(x: 0, y: 0, width: side, height: side))
-            if let scaled = context.makeImage() { CGImageDestinationAddImage(destination, scaled, nil) }
-        }
-        guard CGImageDestinationFinalize(destination) else { throw DockStackError.launcherFailed("icns") }
-    }
-
-    /// Runs a system tool and waits at most ten seconds. Called on Dockfan's
-    /// own queue, never on the main actor.
-    private func run(_ tool: String, _ arguments: [String]) throws {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: tool)
-        process.arguments = arguments
-        process.standardOutput = FileHandle.nullDevice
-        let errors = Pipe()
-        process.standardError = errors
-        let done = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in done.signal() }
-        try process.run()
-        if done.wait(timeout: .now() + 10) == .timedOut {
-            kill(-process.processIdentifier, SIGTERM)
-            process.terminate()
-            throw DockStackError.launcherFailed(L("\(URL(fileURLWithPath: tool).lastPathComponent) took too long",
-                                                  "\(URL(fileURLWithPath: tool).lastPathComponent) a mis trop de temps"))
-        }
-        guard process.terminationStatus == 0 else {
-            let message = String(data: errors.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-            throw DockStackError.launcherFailed(message.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
     }
 
     // MARK: Dock
@@ -260,9 +180,6 @@ struct DockStackService: Sendable {
         URL(fileURLWithPath: folder(for: group).path, isDirectory: true).absoluteString
     }
 
-    private func launcherURL(for group: DockGroup) -> String {
-        URL(fileURLWithPath: launcher(for: group).path, isDirectory: true).absoluteString
-    }
 
     /// Every launcher of a group lives in its own id folder, whatever its name.
     private func isLauncher(_ url: String, of group: DockGroup) -> Bool {
@@ -293,18 +210,6 @@ struct DockStackService: Sendable {
         ]
     }
 
-    private func launcherTile(for group: DockGroup) -> [String: Any] {
-        [
-            "tile-type": "file-tile",
-            "tile-data": [
-                "file-data": ["_CFURLString": launcherURL(for: group), "_CFURLStringType": 15],
-                "file-label": group.folderName,
-                "bundle-identifier": "app.getdroppy.dockfan.folder.\(group.id.uuidString.lowercased())",
-                "file-type": 41,
-            ] as [String: Any],
-        ]
-    }
-
     /// Adds the group's tile, or updates it in place. `previous` is the group
     /// as the Dock knows it, for a rename or a change of mode.
     func putInDock(_ group: DockGroup, previous: DockGroup? = nil) throws {
@@ -314,14 +219,9 @@ struct DockStackService: Sendable {
         let stackIndex = others.firstIndex { Self.url(of: $0).map(oldStacks.contains) == true }
         let appIndex = apps.firstIndex { Self.url(of: $0).map { isLauncher($0, of: group) } == true }
 
-        switch group.mode {
-        case .stack:
-            if let appIndex { apps.remove(at: appIndex) }
-            if let stackIndex { others[stackIndex] = stackTile(for: group) } else { others.append(stackTile(for: group)) }
-        case .folder:
-            if let stackIndex { others.remove(at: stackIndex) }
-            if let appIndex { apps[appIndex] = launcherTile(for: group) } else { apps.append(launcherTile(for: group)) }
-        }
+        // A launcher left by an earlier version gives its place to the stack.
+        if let appIndex { apps.remove(at: appIndex) }
+        if let stackIndex { others[stackIndex] = stackTile(for: group) } else { others.append(stackTile(for: group)) }
         write(others, Self.othersKey)
         write(apps, Self.appsKey)
     }
