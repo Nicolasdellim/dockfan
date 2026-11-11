@@ -2,27 +2,27 @@
 import PackageDescription
 
 let package = Package(
-    name: "Docked",
+    name: "Dockfan",
     platforms: [.macOS(.v14)],
     products: [
         // A droplet is a loadable bundle, so its product is a dynamic library.
         // Do not make it static: the app already carries DroppyKit, and a
         // second copy inside the droplet gives the same type two metadata
         // records, which fails every cast between them.
-        .library(name: "Docked", type: .dynamic, targets: ["Docked"])
+        .library(name: "Dockfan", type: .dynamic, targets: ["Dockfan"])
     ],
     dependencies: [
         .package(url: "https://gitlab.com/droppyformac1/droppykit.git", from: "1.22.0")
     ],
     targets: [
         .target(
-            name: "Docked",
+            name: "Dockfan",
             dependencies: [.product(name: "DroppyKit", package: "droppykit")]
         ),
         .executableTarget(
-            name: "DockedHarness",
+            name: "DockfanHarness",
             dependencies: [
-                "Docked",
+                "Dockfan",
                 .product(name: "DroppyKitHarness", package: "droppykit")
             ]
         )

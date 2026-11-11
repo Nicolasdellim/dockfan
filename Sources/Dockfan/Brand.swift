@@ -1,8 +1,8 @@
 //
 //  Brand.swift
-//  Docked
+//  Dockfan
 //
-//  The look of Docked, taken from its logo: dark smoked glass, white light
+//  The look of Dockfan, taken from its logo: dark smoked glass, white light
 //  on the edges, and one warm orange glow.
 //
 
@@ -30,9 +30,9 @@ enum Brand {
 
 // MARK: - Logo
 
-/// The Docked mark: three glass tiles stacked like a Dock stack, the front
+/// The Dockfan mark: three glass tiles stacked like a Dock stack, the front
 /// one carrying the four-square app grid, lit orange from behind.
-struct DockedMark: View {
+struct DockfanMark: View {
     var size: CGFloat = 64
     /// Draw the outer rounded tile behind the stack, as on the app icon.
     var withTile = true
@@ -218,11 +218,11 @@ struct SectionLabel: View {
 }
 
 /// The droplet's logo, the picture itself, with the drawn mark as a fallback.
-struct DockedLogo: View {
+struct DockfanLogo: View {
     var size: CGFloat = 64
 
     private static let image: NSImage? = {
-        let bundle = Bundle(for: DockedDroplet.self)
+        let bundle = Bundle(for: DockfanDroplet.self)
         let url = bundle.url(forResource: "Logo", withExtension: "png", subdirectory: "Assets")
             ?? bundle.url(forResource: "Logo", withExtension: "png")
         return url.flatMap(NSImage.init(contentsOf:))
@@ -235,7 +235,7 @@ struct DockedLogo: View {
                 .frame(width: size, height: size)
                 .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
         } else {
-            DockedMark(size: size)
+            DockfanMark(size: size)
         }
     }
 }

@@ -1,8 +1,8 @@
 //
 //  ComposedIcon.swift
-//  Docked
+//  Dockfan
 //
-//  The icon Docked draws for a group: its apps in a small grid on a
+//  The icon Dockfan draws for a group: its apps in a small grid on a
 //  background, or a picture of the user's. Drawn on Apple's icon grid (a
 //  824-point body centred on a 1024 canvas) so it lines up with the icons
 //  beside it in the Dock.

@@ -1,8 +1,8 @@
 //
 //  FolderPanel.swift
-//  Docked
+//  Dockfan
 //
-//  The fan Docked draws above a group's tile: its apps rising one by one in
+//  The fan Dockfan draws above a group's tile: its apps rising one by one in
 //  an arc, each with its name. It opens where the click was, closes on a
 //  click elsewhere, on Escape or once an app launches, and never takes the
 //  menu bar.
@@ -36,11 +36,12 @@ struct PanelMetrics {
 
     /// The same fan, smaller if needed so it fits in `height`.
     static func fitting(_ style: PanelStyle, count: Int, height: CGFloat) -> PanelStyle {
-        let full = PanelMetrics(style: style, count: count).size.height
-        guard full > height, full > 0 else { return style }
+        let metrics = PanelMetrics(style: style, count: count)
+        guard metrics.size.height > height, count > 0 else { return style }
+        // Height is count × step + 30: scale the step to what is left.
         var fitted = style
-        let ratio = max(0.4, height / full)
-        fitted.iconSize = max(20, style.iconSize * ratio)
+        let ratio = max(0.2, (height - 30) / (CGFloat(count) * metrics.step))
+        fitted.iconSize = max(16, style.iconSize * ratio)
         fitted.spacing = style.spacing * ratio
         return fitted
     }
@@ -78,7 +79,7 @@ struct FolderPanelView: View {
             ForEach(Array(group.displayedApps.enumerated()), id: \.element.id) { index, app in
                 Button { onLaunch(app) } label: { row(app, metrics: metrics) }
                     .buttonStyle(.plain)
-                    .disabled(!interactive)
+                    .allowsHitTesting(interactive)
                     .onHover { inside in
                         withAnimation(.easeOut(duration: 0.12)) { hovered = inside ? app.id : (hovered == app.id ? nil : hovered) }
                     }
@@ -97,7 +98,7 @@ struct FolderPanelView: View {
                 Text(app.name).font(.system(size: style.labelSize, weight: .semibold)).lineLimit(1)
                     .foregroundStyle(style.lightPills ? Color.black.opacity(0.85) : .white)
                     .padding(.horizontal, style.labelSize * 0.85).frame(height: style.labelSize * 1.95)
-                    .modifier(PillBackground(style: style, lit: lit))
+                    .modifier(PillBackground(style: style, lit: lit, native: interactive))
             }
         }
         .frame(width: PanelMetrics.labelWidth, alignment: style.labelsLeft ? .trailing : .leading)
@@ -126,6 +127,8 @@ struct FolderPanelView: View {
 private struct PillBackground: ViewModifier {
     let style: PanelStyle
     let lit: Bool
+    /// The system glass only draws in a live window, not in the preview.
+    var native = true
 
     func body(content: Content) -> some View {
         let tint = Color(nsColor: style.tintColor ?? NSColor(white: 0.3, alpha: 1))
@@ -140,7 +143,7 @@ private struct PillBackground: ViewModifier {
                 .overlay(Capsule().strokeBorder(.white.opacity(lit ? 0.45 : 0.2), lineWidth: 0.6))
                 .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
         case .glass:
-            if #available(macOS 26.0, *) {
+            if #available(macOS 26.0, *), native {
                 content.glassEffect(Glass.regular.tint(style.tintColor.map { Color(nsColor: $0).opacity(0.45) }), in: Capsule())
             } else {
                 content

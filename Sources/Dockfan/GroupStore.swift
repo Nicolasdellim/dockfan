@@ -1,6 +1,6 @@
 //
 //  GroupStore.swift
-//  Docked
+//  Dockfan
 //
 
 import AppKit
@@ -54,12 +54,12 @@ final class GroupStore: ObservableObject {
     @Published private(set) var loaded = false
     /// Pictures chosen for icons, by file name, loaded once.
     @Published private(set) var images: [String: NSImage] = [:]
-    /// Where a folder tile sends its click: `droppy://droplet/docked`. Set by
+    /// Where a folder tile sends its click: `droppy://droplet/dockfan`. Set by
     /// the droplet; `nil` in a host that can't deliver URLs.
     var callbackBase: URL?
 
     let service: DockStackService
-    private let queue = DispatchQueue(label: "docked.files", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "dockfan.files", qos: .userInitiated)
     /// The group as the Dock last read it, to tell a rename apart.
     private var dockSnapshots: [UUID: DockGroup] = [:]
     private var writeGenerations: [UUID: Int] = [:]
@@ -120,7 +120,7 @@ final class GroupStore: ObservableObject {
             name = "\(base) \(index)"; index += 1
         }
         var group = DockGroup(name: name, apps: apps)
-        // New groups are drawn by Docked, with their apps as the icon.
+        // New groups are drawn by Dockfan, with their apps as the icon.
         if callbackBase != nil { group.mode = .folder; group.tileStyle = .appGrid }
         document.groups.append(group)
         selection = group.id
@@ -312,7 +312,7 @@ final class GroupStore: ObservableObject {
 
     func image(for group: DockGroup) -> NSImage? { group.iconImage.flatMap { images[$0] } }
 
-    /// Copies a picture into Docked's folder and makes it the group's icon.
+    /// Copies a picture into Dockfan's folder and makes it the group's icon.
     func importImage(from url: URL, for id: UUID) {
         let service = service
         let access = url.startAccessingSecurityScopedResource()
@@ -416,7 +416,7 @@ final class GroupStore: ObservableObject {
 extension DockGroup {
     /// Settings the Dock reads only when it starts: its tile, its label, its
     /// icon. The apps of a stack reach it on their own; the panel of a folder
-    /// is Docked's and changes at once.
+    /// is Dockfan's and changes at once.
     func differsForDock(from other: DockGroup) -> Bool {
         if folderName != other.folderName || mode != other.mode || effectiveTileStyle != other.effectiveTileStyle { return true }
         if mode == .stack, order != other.order { return true }

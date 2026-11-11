@@ -1,6 +1,6 @@
 //
 //  EditorWindow.swift
-//  Docked
+//  Dockfan
 //
 
 import AppKit
@@ -24,7 +24,7 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered, defer: false
             )
-            window.title = "Docked"
+            window.title = "Dockfan"
             window.titleVisibility = .hidden
             window.titlebarAppearsTransparent = true
             window.isMovableByWindowBackground = true
@@ -36,8 +36,8 @@ final class EditorWindowController: NSObject, NSWindowDelegate {
             window.delegate = self
             // Without this the window opens on the Space Droppy last used.
             window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
-            window.setFrameAutosaveName("DockedEditor")
-            if !window.setFrameUsingName("DockedEditor") { window.center() }
+            window.setFrameAutosaveName("DockfanEditor")
+            if !window.setFrameUsingName("DockfanEditor") { window.center() }
             self.window = window
         }
         store.refreshDockState()

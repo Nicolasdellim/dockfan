@@ -1,9 +1,9 @@
 {
-  "id": "docked",
-  "name": "Docked",
+  "id": "dockfan",
+  "name": "Dockfan",
   "version": "1.0.0",
-  "summary": "Group apps into one Dock stack that opens as a fan",
-  "description": "Docked puts several apps in a single stack of the Dock. Click it and they spread out in the Dock's own fan, with its animation, and it closes like any stack.\n\nCreate a group in Docked's editor, pick its apps and their order, choose fan, grid or list, and add it to the Dock. Apps you add or move later reach the stack right away. Suggestions build a group from the suites already on your Mac, such as Adobe or Microsoft Office.",
+  "summary": "Group apps behind one Dock tile that opens as a fan",
+  "description": "Dockfan puts several apps behind a single tile of the Dock. Click it and they rise in a fan, one after the other, each with its name; click an app to open it.\n\nMake the fan yours: icon size, distance between icons, curve, names or icons only, dark, coloured or glass name pills, and the opening animation. The tile itself can show several apps, one app, your own photo or a folder. You can also keep macOS's own stack beside the Trash. Suggestions build a group from the suites already on your Mac, such as Adobe or Microsoft Office.",
   "category": "Productivity",
   "kit": {
     "abi": 1,
@@ -16,7 +16,7 @@
   "surfaces": [
     "settings-pane"
   ],
-  "icon": "Docked.icon",
+  "icon": "Dockfan.icon",
   "creator": {
     "name": "Nicolas Delli Muti",
     "kind": "community",
@@ -25,17 +25,17 @@
     "gitlab": "your-gitlab-username"
   },
   "source": {
-    "repository": "https://gitlab.com/droppyformac1/droplets/-/tree/main/droplets/docked",
+    "repository": "https://gitlab.com/droppyformac1/droplets/-/tree/main/droplets/dockfan",
     "license": "MIT"
   },
   "keywords": [
     "dock",
-    "stack",
     "fan",
+    "stack",
     "group",
     "apps",
-    "folder",
     "launcher",
-    "organize"
+    "organize",
+    "dockfan"
   ]
 }

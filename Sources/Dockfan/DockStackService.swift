@@ -1,6 +1,6 @@
 //
 //  DockStackService.swift
-//  Docked
+//  Dockfan
 //
 //  A group lives in the Dock in one of two ways:
 //
@@ -8,9 +8,9 @@
 //    stacks (`persistent-others`), so the fan, its animation and the way it
 //    closes are macOS's.
 //  - Folder: a tiny launcher app among the apps (`persistent-apps`). A click
-//    opens `droppy://droplet/docked/open?group=…`, and Docked shows its glass
+//    opens `droppy://droplet/dockfan/open?group=…`, and Dockfan shows its glass
 //    panel above the tile. The launcher is an AppleScript applet made with
-//    `osacompile`, which every Mac has, so Docked ships no executable.
+//    `osacompile`, which every Mac has, so Dockfan ships no executable.
 //
 
 import AppKit
@@ -68,7 +68,7 @@ struct DockStackService: Sendable {
 
     // MARK: Images
 
-    /// Copies a picture the user chose into Docked's folder, as a square-ish
+    /// Copies a picture the user chose into Dockfan's folder, as a square-ish
     /// PNG of at most 1024 pixels. Returns its file name.
     func importImage(from url: URL) throws -> String {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
@@ -133,7 +133,7 @@ struct DockStackService: Sendable {
         try? fm.setAttributes([.modificationDate: now], ofItemAtPath: folder.path)
     }
 
-    /// Gives the stack's folder Docked's icon, or takes it away (`nil`).
+    /// Gives the stack's folder Dockfan's icon, or takes it away (`nil`).
     func setFolderIcon(_ png: Data?, for group: DockGroup) {
         let path = folder(for: group).path
         let image = png.flatMap(NSImage.init(data:))
@@ -155,7 +155,7 @@ struct DockStackService: Sendable {
     // MARK: Folder launcher
 
     /// Builds the launcher app for a folder group: an applet that opens
-    /// `openURL`, named after the group, with Docked's icon. Replaces any
+    /// `openURL`, named after the group, with Dockfan's icon. Replaces any
     /// earlier one of this group.
     func writeLauncher(for group: DockGroup, iconPNG: Data?, openURL: URL) throws {
         let fm = FileManager.default
@@ -173,7 +173,7 @@ struct DockStackService: Sendable {
               var plist = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
             throw DockStackError.launcherFailed("Info.plist")
         }
-        plist["CFBundleIdentifier"] = "app.getdroppy.docked.folder.\(group.id.uuidString.lowercased())"
+        plist["CFBundleIdentifier"] = "app.getdroppy.dockfan.folder.\(group.id.uuidString.lowercased())"
         plist["CFBundleName"] = group.folderName
         plist["CFBundleDisplayName"] = group.folderName
         plist["LSUIElement"] = true
@@ -212,7 +212,7 @@ struct DockStackService: Sendable {
         guard CGImageDestinationFinalize(destination) else { throw DockStackError.launcherFailed("icns") }
     }
 
-    /// Runs a system tool and waits at most ten seconds. Called on Docked's
+    /// Runs a system tool and waits at most ten seconds. Called on Dockfan's
     /// own queue, never on the main actor.
     private func run(_ tool: String, _ arguments: [String]) throws {
         let process = Process()
@@ -299,7 +299,7 @@ struct DockStackService: Sendable {
             "tile-data": [
                 "file-data": ["_CFURLString": launcherURL(for: group), "_CFURLStringType": 15],
                 "file-label": group.folderName,
-                "bundle-identifier": "app.getdroppy.docked.folder.\(group.id.uuidString.lowercased())",
+                "bundle-identifier": "app.getdroppy.dockfan.folder.\(group.id.uuidString.lowercased())",
                 "file-type": 41,
             ] as [String: Any],
         ]

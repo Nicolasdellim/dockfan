@@ -1,6 +1,6 @@
 //
 //  Models.swift
-//  Docked
+//  Dockfan
 //
 
 import AppKit
@@ -12,10 +12,10 @@ import Foundation
 enum GroupMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// A native Dock stack beside the Trash: the Dock's own fan, grid or list.
     case stack
-    /// A tile among the apps that opens Docked's own glass panel.
+    /// A tile among the apps that opens Dockfan's own glass panel.
     case folder
     var id: String { rawValue }
-    var title: String { self == .stack ? L("macOS fan", "Éventail macOS") : L("Docked fan", "Éventail Docked") }
+    var title: String { self == .stack ? L("macOS fan", "Éventail macOS") : L("Dockfan fan", "Éventail Dockfan") }
     var subtitle: String {
         self == .stack
             ? L("The Dock’s own animation, beside the Trash. No settings.", "L’animation du Dock, près de la corbeille. Aucun réglage.")
@@ -79,7 +79,7 @@ enum TileStyle: Int, Codable, CaseIterable, Identifiable, Sendable {
     static func available(for mode: GroupMode) -> [TileStyle] {
         mode == .stack ? [.appGrid, .singleApp, .image, .folder, .stack] : [.appGrid, .singleApp, .image, .folder]
     }
-    /// Styles drawn by Docked and set as the icon of the folder or launcher.
+    /// Styles drawn by Dockfan and set as the icon of the folder or launcher.
     var isComposed: Bool { self == .appGrid || self == .image || self == .singleApp }
 }
 
@@ -184,7 +184,7 @@ enum OpenAnimation: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-/// Everything about the fan Docked draws.
+/// Everything about the fan Dockfan draws.
 struct PanelStyle: Codable, Equatable, Sendable {
     var iconSize: Double = 52
     /// The gap between two icons.
@@ -334,7 +334,7 @@ struct DockGroup: Codable, Identifiable, Equatable, Sendable {
     var iconFinish: Finish = .glass
     /// 2 for a 2 × 2 grid of apps, 3 for 3 × 3.
     var iconGrid = 2
-    /// The picture for `.image`, a file in Docked's Images folder.
+    /// The picture for `.image`, a file in Dockfan's Images folder.
     var iconImage: String?
     /// The app for `.singleApp`; the first app when unset.
     var iconApp: UUID?

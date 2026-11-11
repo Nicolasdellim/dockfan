@@ -1,6 +1,6 @@
 //
 //  EditorView.swift
-//  Docked
+//  Dockfan
 //
 //  Three panels: the groups, a live preview of the stack, and an inspector.
 //  Edits save as they happen; the inspector's last row is where the group
@@ -33,7 +33,7 @@ struct EditorView: View {
         .tint(Brand.ember)
         .frame(minWidth: 1040, minHeight: 680)
         .onAppear { catalog.load() }
-        .alert("Docked", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
+        .alert("Dockfan", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) {
             Button("OK") { store.error = nil }
         } message: { Text(store.error ?? "") }
     }
@@ -64,10 +64,10 @@ private struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
-                DockedLogo(size: 34)
+                DockfanLogo(size: 34)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Docked").font(.system(size: 15, weight: .semibold)).foregroundStyle(Brand.text)
-                    Text(L("Your apps, stacked", "Vos apps, en piles")).font(.system(size: 11)).foregroundStyle(Brand.tertiary)
+                    Text("Dockfan").font(.system(size: 15, weight: .semibold)).foregroundStyle(Brand.text)
+                    Text(L("Your apps, in a fan", "Vos apps, en éventail")).font(.system(size: 11)).foregroundStyle(Brand.tertiary)
                 }
             }
             .padding(.horizontal, 16).padding(.top, 40).padding(.bottom, 22)
@@ -264,10 +264,10 @@ private struct Welcome: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 20)
-            DockedLogo(size: 116)
+            DockfanLogo(size: 116)
                 .shadow(color: Brand.ember.opacity(0.25), radius: 40, y: 10)
                 .padding(.bottom, 26)
-            Text(L("Welcome to Docked", "Bienvenue dans Docked")).font(.system(size: 26, weight: .semibold)).foregroundStyle(Brand.text)
+            Text(L("Welcome to Dockfan", "Bienvenue dans Dockfan")).font(.system(size: 26, weight: .semibold)).foregroundStyle(Brand.text)
             Text(L("Keep several apps in one stack of the Dock.\nOne click and they spread out in a fan.", "Rangez plusieurs apps dans une seule pile du Dock.\nUn clic, et elles se déploient en éventail."))
                 .font(.system(size: 14)).foregroundStyle(Brand.secondary).multilineTextAlignment(.center)
                 .lineSpacing(3).padding(.top, 10)
@@ -641,10 +641,10 @@ private struct Inspector: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "info.circle.fill").font(.system(size: 13)).foregroundStyle(Brand.ember)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text(L("This group uses macOS’s own fan, which can’t be customised. Switch to Docked’s fan to use the settings below.",
-                               "Ce groupe utilise l’éventail de macOS, qui ne se personnalise pas. Passez à l’éventail Docked pour utiliser les réglages ci-dessous."))
+                        Text(L("This group uses macOS’s own fan, which can’t be customised. Switch to Dockfan’s fan to use the settings below.",
+                               "Ce groupe utilise l’éventail de macOS, qui ne se personnalise pas. Passez à l’éventail Dockfan pour utiliser les réglages ci-dessous."))
                             .font(.system(size: 11)).foregroundStyle(Brand.text).fixedSize(horizontal: false, vertical: true)
-                        Button { withAnimation { group.mode = .folder } } label: { Label(L("Use Docked’s fan", "Utiliser l’éventail Docked"), systemImage: "wand.and.stars") }
+                        Button { withAnimation { group.mode = .folder } } label: { Label(L("Use Dockfan’s fan", "Utiliser l’éventail Dockfan"), systemImage: "wand.and.stars") }
                             .buttonStyle(QuietButtonStyle(compact: true))
                     }
                 }
@@ -916,7 +916,7 @@ private struct Card<Content: View>: View {
 
 
 
-/// Docked or macOS, as two radio rows.
+/// Dockfan or macOS, as two radio rows.
 private struct RendererRow: View {
     let mode: GroupMode
     let selected: Bool
@@ -931,7 +931,7 @@ private struct RendererRow: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(mode == .folder ? L("Docked · made to measure", "Docked · sur mesure") : L("macOS · native", "macOS · natif"))
+                        Text(mode == .folder ? L("Dockfan · made to measure", "Dockfan · sur mesure") : L("macOS · native", "macOS · natif"))
                             .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Brand.text)
                         if mode == .folder {
                             Text(L("Recommended", "Conseillé")).font(.system(size: 9, weight: .bold)).foregroundStyle(Brand.ember)

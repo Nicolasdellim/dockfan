@@ -1,6 +1,6 @@
 //
 //  AppLibrary.swift
-//  Docked
+//  Dockfan
 //
 
 import AppKit

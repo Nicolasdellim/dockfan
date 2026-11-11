@@ -1,6 +1,6 @@
 //
 //  StackPreview.swift
-//  Docked
+//  Dockfan
 //
 //  A picture of what the Dock will show. The real stack is macOS's own; this
 //  only helps choose apps, order and presentation before applying.

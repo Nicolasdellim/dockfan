@@ -1,6 +1,6 @@
-# Docked
+# Dockfan
 
-Docked keeps several apps in one stack of the Dock. Click the stack and the
+Dockfan keeps several apps in one stack of the Dock. Click the stack and the
 apps spread out in the Dock's own fan, with its animation, then close like any
 other stack. Your Dock stays short, and a whole suite is one click away.
 
@@ -18,12 +18,12 @@ A Droplet for [Droppy](https://getdroppy.app), built with
 - **Changes that land at once.** Apps you add, remove or reorder show up in a
   docked stack right away. A new name, opening, icon or order is applied with
   one click, which reloads the Dock for about a second.
-- **Suggestions.** Docked offers ready-made groups from the suites already on
+- **Suggestions.** Dockfan offers ready-made groups from the suites already on
   your Mac: Adobe, Microsoft Office, Apple iWork, your browsers, the utilities.
 
 ## How to use it
 
-1. Open Droppy's Settings, go to Docked's page and click **Open Docked**, or
+1. Open Droppy's Settings, go to Dockfan's page and click **Open Dockfan**, or
    set a keyboard shortcut for it on Droppy's Shortcuts page.
 2. Click **Create a group**, or start from a suggestion.
 3. Add apps with **Add apps** or by dragging them from Finder, and drag the
@@ -34,20 +34,20 @@ A Droplet for [Droppy](https://getdroppy.app), built with
 5. Click **Add to Dock**.
 
 To remove a stack, use **Remove from Dock** in the editor, or drag it out of
-the Dock as usual: Docked notices.
+the Dock as usual: Dockfan notices.
 
 ## Settings
 
-Docked's page in Droppy's Settings opens the editor and lists your groups with
+Dockfan's page in Droppy's Settings opens the editor and lists your groups with
 whether each is in the Dock.
 
 ## Privacy
 
 - **global-shortcuts**: an optional keyboard shortcut that opens the editor.
-- Docked keeps its groups in its own folder in Droppy's container: a
+- Dockfan keeps its groups in its own folder in Droppy's container: a
   `groups.json` file, and one folder of Finder aliases per group, which is
   what the Dock shows.
-- To put a stack in the Dock, Docked adds it to the Dock's preferences
+- To put a stack in the Dock, Dockfan adds it to the Dock's preferences
   (`com.apple.dock`, `persistent-others`) and reloads the Dock. Before each
   change it keeps a copy of those preferences in its folder, the ten latest.
 - Nothing leaves the Mac.

@@ -1,9 +1,9 @@
 //
 //  L10n.swift
-//  Docked
+//  Dockfan
 //
 //  English first, French as a localization. A droplet runs inside Droppy, so
-//  `Bundle.main` is Droppy's: Docked speaks the language Droppy speaks, and
+//  `Bundle.main` is Droppy's: Dockfan speaks the language Droppy speaks, and
 //  English for any other.
 //
 

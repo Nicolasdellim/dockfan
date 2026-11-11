@@ -1,6 +1,6 @@
 //
-//  DockedDroplet.swift
-//  Docked
+//  DockfanDroplet.swift
+//  Dockfan
 //
 
 import Combine
@@ -9,25 +9,25 @@ import SwiftUI
 
 /// The class Droppy's loader instantiates, named in the bundle's
 /// `NSPrincipalClass`. Keep it empty: it runs before the host is ready.
-@objc(DockedPrincipal)
-public final class DockedPrincipal: NSObject, DropletPrincipal {
+@objc(DockfanPrincipal)
+public final class DockfanPrincipal: NSObject, DropletPrincipal {
     public override init() { super.init() }
 
-    @MainActor public func makeDroplet() -> AnyObject { DockedDroplet() }
+    @MainActor public func makeDroplet() -> AnyObject { DockfanDroplet() }
 }
 
-/// Docked: several apps behind one Dock tile.
+/// Dockfan: several apps behind one Dock tile.
 ///
 /// A stack is a folder of Finder aliases that the Dock shows as one of its
 /// own stacks, so the fan, its animation and the way it closes are the
 /// Dock's. A folder is a small launcher among the apps whose click comes
-/// back here as `droppy://droplet/docked/open?group=…` and opens Docked's
+/// back here as `droppy://droplet/dockfan/open?group=…` and opens Dockfan's
 /// glass panel. The droplet is also the editor.
 @MainActor
-public final class DockedDroplet: NSObject, ObservableObject, Droplet {
+public final class DockfanDroplet: NSObject, ObservableObject, Droplet {
     /// Must equal `DroppyDropletID` in the bundle's Info.plist and `id` in
     /// droplet.json. The loader refuses the bundle if the three disagree.
-    public nonisolated static let id: DropletID = "docked"
+    public nonisolated static let id: DropletID = "dockfan"
 
     private var host: DropletHost?
     private var store: GroupStore?
@@ -47,7 +47,7 @@ public final class DockedDroplet: NSObject, ObservableObject, Droplet {
         storeChanges = store.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
         self.store = store
         if host.isGranted(.globalShortcuts) {
-            host.shortcuts.register(id: "open-editor", title: L("Open Docked", "Ouvrir Docked"), defaultShortcut: nil) { [weak self] in
+            host.shortcuts.register(id: "open-editor", title: L("Open Dockfan", "Ouvrir Dockfan"), defaultShortcut: nil) { [weak self] in
                 self?.openEditor()
             }
             documentChanges = store.$document.receive(on: DispatchQueue.main).sink { [weak self] document in
@@ -55,7 +55,7 @@ public final class DockedDroplet: NSObject, ObservableObject, Droplet {
             }
         }
         panel.onEdit = { [weak self] id in self?.edit(id) }
-        host.log.info("Docked activated")
+        host.log.info("Dockfan activated")
     }
 
     public func deactivate() {
@@ -91,7 +91,7 @@ public final class DockedDroplet: NSObject, ObservableObject, Droplet {
     /// from its shortcut.
     func togglePanel(_ id: UUID) {
         guard var group = store?.groups.first(where: { $0.id == id }) else { return }
-        // A macOS stack opened by its shortcut shows the same view, drawn by Docked.
+        // A macOS stack opened by its shortcut shows the same view, drawn by Dockfan.
         panel.toggle(group)
     }
 
@@ -120,7 +120,7 @@ public final class DockedDroplet: NSObject, ObservableObject, Droplet {
 
 // MARK: - URLs
 
-extension DockedDroplet: DropletURLHandling {
+extension DockfanDroplet: DropletURLHandling {
     /// `open?group=<id>`: a folder tile was clicked. Anything else, or an
     /// unknown group, is ignored: every app on the Mac can open these URLs.
     public func handle(_ request: DropletURLRequest) {
@@ -132,24 +132,24 @@ extension DockedDroplet: DropletURLHandling {
 
 // MARK: - Settings pane
 
-extension DockedDroplet: SettingsPaneProviding {
+extension DockfanDroplet: SettingsPaneProviding {
     public func makeSettingsPane(context: SettingsPaneContext) -> AnyView {
-        AnyView(DockedSettings(droplet: self))
+        AnyView(DockfanSettings(droplet: self))
     }
 
     public var settingsSearchEntries: [SettingsSearchEntry] {
-        [SettingsSearchEntry(title: L("Dock groups", "Groupes du Dock"), keywords: ["dock", "pile", "stack", "éventail", "groupe", "apps", "docked"])]
+        [SettingsSearchEntry(title: L("Dock groups", "Groupes du Dock"), keywords: ["dock", "pile", "stack", "éventail", "groupe", "apps", "dockfan"])]
     }
 }
 
-private struct DockedSettings: View {
-    @ObservedObject var droplet: DockedDroplet
+private struct DockfanSettings: View {
+    @ObservedObject var droplet: DockfanDroplet
 
     var body: some View {
         DropletSettingsPane {
             DropletSettingsCard {
                 DropletControlRow(title: L("Group editor", "Éditeur de groupes"), icon: "square.stack.3d.up.fill") {
-                    Button(L("Open Docked", "Ouvrir Docked")) { droplet.openEditor() }.buttonStyle(.borderedProminent)
+                    Button(L("Open Dockfan", "Ouvrir Dockfan")) { droplet.openEditor() }.buttonStyle(.borderedProminent)
                 }
             }
             DropletSettingsSection {

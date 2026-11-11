@@ -1,6 +1,6 @@
 //
 //  Suggestions.swift
-//  Docked
+//  Dockfan
 //
 //  Ready-made groups from the apps already on the Mac: the Adobe suite, the
 //  Office apps, the browsers. Only the ones the Mac has two or more apps of.
